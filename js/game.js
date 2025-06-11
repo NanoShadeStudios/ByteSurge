@@ -7,6 +7,10 @@ const ctx = canvas.getContext('2d');
 const loadingText = document.getElementById('loadingText') || null;
 const gameStats = document.getElementById('gameStats') || null;
 
+// ===== OPENING ANIMATION =====
+let openingAnimation = null;
+let showingOpeningAnimation = true;
+
 // ===== GAME STATE MANAGEMENT =====
 let gameInitialized = false;
 let gameRunning = false;
@@ -206,10 +210,9 @@ let drone = null;
 function setupCanvas() {
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    
-    // Base dimensions (as specified in planning)
-    const baseWidth = 800;
-    const baseHeight = 600;
+      // Base dimensions (expanded for better gameplay experience)
+    const baseWidth = 1200;
+    const baseHeight = 800;
     
     // Set actual canvas size with device pixel ratio for crisp rendering
     canvas.width = baseWidth * dpr;
@@ -294,6 +297,29 @@ function gameLoop(currentTime) {
     if (!gameInitialized) return;
     
     const frameStartTime = performance.now();
+    
+    // Handle opening animation
+    if (showingOpeningAnimation && openingAnimation) {
+        const animationComplete = openingAnimation.update(currentTime);
+        openingAnimation.render();
+          if (animationComplete) {
+            showingOpeningAnimation = false;
+            // Show game UI elements
+            const gameContainer = document.querySelector('.game-container');
+            if (gameContainer) {
+                gameContainer.classList.remove('opening-animation');
+            }
+            // Show game stats
+            if (gameStats) {
+                gameStats.style.display = 'block';
+            }
+            // Start the actual game
+            gameRunning = true;
+        }
+        
+        requestAnimationFrame(gameLoop);
+        return;
+    }
     
     // Calculate delta time with safety clamping
     const rawDeltaTime = currentTime - lastTime;
@@ -699,6 +725,15 @@ async function initializeGame() {
     
     // Setup canvas with enhanced scaling
     setupCanvas();
+      // Initialize opening animation
+    if (window.OpeningAnimation) {
+        openingAnimation = new window.OpeningAnimation(canvas, ctx);
+        // Hide game UI elements during opening animation
+        const gameContainer = document.querySelector('.game-container');
+        if (gameContainer) {
+            gameContainer.classList.add('opening-animation');
+        }
+    }
     
     // Initialize viewport management
     viewportManager.updateScale();
@@ -707,6 +742,21 @@ async function initializeGame() {
     if (window.setupInputHandlers) {
         window.setupInputHandlers();
     }
+    
+    // Add skip animation input
+    const skipAnimation = () => {
+        if (showingOpeningAnimation && openingAnimation) {
+            openingAnimation.skipAnimation();
+        }
+    };
+    
+    canvas.addEventListener('click', skipAnimation);
+    window.addEventListener('keydown', (e) => {
+        if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'Escape') && showingOpeningAnimation) {
+            e.preventDefault();
+            skipAnimation();
+        }
+    });
     
     // Initialize performance monitoring
     lastTime = performance.now();
@@ -719,39 +769,19 @@ async function initializeGame() {
         console.error('❌ Drone class not found!');
     }
     
-    // Simulate loading time for dramatic effect
-    const loadingMessages = [
-        'Initializing Neural Networks...',
-        'Calibrating Input Systems...',
-        'Loading Performance Monitors...',
-        'Establishing Quantum Link...',
-        'Activating Game Loop Engine...',
-        'ByteSurge Protocol ONLINE!'
-    ];
-    
-    for (let i = 0; i < loadingMessages.length; i++) {
-        if (loadingText) {
-            loadingText.textContent = loadingMessages[i];
-        }
-        console.log(`🚀 ${loadingMessages[i]}`);
-        await new Promise(resolve => setTimeout(resolve, 600));
-    }
-    
-    // Hide loading and show game
+    // Hide loading text and keep stats hidden until animation completes
     if (loadingText) {
         loadingText.style.display = 'none';
     }
     if (gameStats) {
-        gameStats.style.display = 'block';
+        gameStats.style.display = 'none';
     }
     
     gameInitialized = true;
-    gameRunning = true;
+    gameRunning = false; // Will be set to true after opening animation
     gamePaused = false;
     
-    
-    
-    // Start the professional game loop
+    // Start the game loop (will show opening animation first)
     requestAnimationFrame(gameLoop);
 }
 

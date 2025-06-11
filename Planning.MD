@@ -1,4 +1,4 @@
-Always do the first unclompted task from planning.MD whenever i say "n". whenever you finish a task, mark it as completed. go above and beyond on the tasks, think big. Remember to keep file sizes small and organized.
+Always do the first unclompted task from planning.MD whenever i say "n". whenever you finish a task, mark it as completed. go above and beyond on the tasks, think big. Remember to keep file sizes small and organized. and dont add console logs unless debugging. but once done debugging delete console logs
 
 
 

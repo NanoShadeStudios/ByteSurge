@@ -16,6 +16,8 @@ body {
     min-height: 100vh;
     overflow: hidden;
     color: #ffffff;
+    margin: 0;
+    padding: 20px;
 }
 
 .game-container {
@@ -59,6 +61,9 @@ body {
     background: #1a1a1a;
     cursor: crosshair;
     transition: box-shadow 0.3s ease;
+    max-width: 95vw;
+    max-height: 80vh;
+    object-fit: contain;
 }
 
 #gameCanvas:hover {
@@ -212,6 +217,28 @@ body {
     font-size: 0.4rem;
     text-transform: uppercase;
     box-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
+}
+
+/* Opening Animation Styles */
+.game-container.opening-animation {
+    gap: 0;
+}
+
+.game-container.opening-animation .game-title,
+.game-container.opening-animation .game-subtitle,
+.game-container.opening-animation .controls {
+    display: none;
+}
+
+#gameCanvas {
+    border: 2px solid #333;
+    border-radius: 8px;
+    box-shadow: 
+        0 0 20px rgba(0, 255, 255, 0.3),
+        inset 0 0 20px rgba(0, 0, 0, 0.5);
+    background: #0a0a0a;
+    cursor: crosshair;
+    transition: box-shadow 0.3s ease;
 }
 
 /* Responsive Design */
