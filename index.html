@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=800, initial-scale=1.0">
+  <title>ByteSurge: Infinite Loop</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="game-container">
+    <h1 class="game-title">BYTESURGE</h1>
+    <p class="game-subtitle">Infinite Loop Protocol</p>
+    
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    
+    <div class="controls">
+      <div class="control-item">
+        <span class="key">SPACE</span>
+        <span>Turn Left</span>
+      </div>
+      <div class="control-item">
+        <span class="key">H</span>
+        <span>Deploy Harvester</span>
+      </div>
+      <div class="control-item">
+        <span class="key">CLICK</span>
+        <span>Alternative Turn</span>
+      </div>
+    </div>
+    
+    <div class="loading" id="loadingText">Initializing...</div>
+  </div>
+  
+  <div class="game-stats" id="gameStats" style="display: none;">
+    <div class="stat-row">
+      <span class="stat-label">Distance:</span>
+      <span class="stat-value" id="distanceValue">0m</span>
+    </div>    <div class="stat-row">
+      <span class="stat-label">Energy:</span>
+      <span class="stat-value" id="energyValue">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Score:</span>
+      <span class="stat-value" id="scoreValue">0</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Harvesters:</span>
+      <span class="stat-value" id="harvestersValue">0/3</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Zone Level:</span>
+      <span class="stat-value" id="zoneLevelValue">1</span>
+    </div>  </div>
+  <!-- Modular Game Scripts -->
+  <script src="js/drone.js"></script>
+  <script src="js/energyNodes.js"></script>
+  <script src="js/corruptionZones.js"></script>
+  <script src="js/harvesters.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

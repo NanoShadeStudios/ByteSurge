@@ -1,0 +1,302 @@
+// ByteSurge: Infinite Loop - Input System
+// Advanced multi-platform input handling
+
+// ===== INPUT STATE MANAGER =====
+let inputState = {
+    keys: new Set(),
+    mousePos: { x: 0, y: 0 },
+    mouseButtons: new Set(),
+    touches: new Map(),
+    lastInputTime: 0,
+    inputBuffer: [],
+    maxBufferSize: 10
+};
+
+// ===== INPUT SYSTEM =====
+function setupInputHandlers() {
+    console.log('🎮 Setting up advanced input system...');
+    
+    // === KEYBOARD INPUT SYSTEM ===
+    document.addEventListener('keydown', (e) => {
+        // Add to input state tracking
+        inputState.keys.add(e.code);
+        inputState.lastInputTime = performance.now();
+        
+        // Add to input buffer for frame-perfect detection
+        inputState.inputBuffer.push({
+            type: 'keydown',
+            code: e.code,
+            timestamp: performance.now()
+        });
+        
+        // Maintain buffer size
+        if (inputState.inputBuffer.length > inputState.maxBufferSize) {
+            inputState.inputBuffer.shift();
+        }
+          // Handle game-specific inputs
+        if (!window.getGameRunning || !window.getGameRunning()) return;
+        
+        switch(e.code) {
+            case 'Space':
+                e.preventDefault();
+                handleTurn();
+                break;
+            case 'KeyH':
+                e.preventDefault();
+                handleHarvesterDrop();
+                break;
+            case 'KeyP':
+                e.preventDefault();
+                togglePause();
+                break;
+            case 'KeyR':
+                if (e.ctrlKey) {
+                    e.preventDefault();
+                    resetGame();
+                }
+                break;
+            case 'F11':
+                e.preventDefault();
+                toggleFullscreen();
+                break;
+            case 'KeyD':
+                if (e.ctrlKey && e.shiftKey) {
+                    e.preventDefault();
+                    window.DEBUG_MODE = !window.DEBUG_MODE;
+                }
+                break;
+        }
+    });
+    
+    document.addEventListener('keyup', (e) => {
+        inputState.keys.delete(e.code);
+        
+        inputState.inputBuffer.push({
+            type: 'keyup',
+            code: e.code,
+            timestamp: performance.now()
+        });
+        
+        if (inputState.inputBuffer.length > inputState.maxBufferSize) {
+            inputState.inputBuffer.shift();
+        }
+    });
+    
+    // === MOUSE INPUT SYSTEM ===
+    const canvas = document.getElementById('gameCanvas');
+    
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const gameCoords = window.viewportManager.screenToGame(e.clientX, e.clientY);
+        inputState.mousePos = gameCoords;
+    });
+      canvas.addEventListener('mousedown', (e) => {
+        inputState.mouseButtons.add(e.button);
+        inputState.lastInputTime = performance.now();
+        
+        if (!window.getGameRunning || !window.getGameRunning()) return;
+        e.preventDefault();
+        
+        switch(e.button) {
+            case 0: // Left click
+                handleTurn();
+                break;
+            case 2: // Right click
+                handleHarvesterDrop();
+                break;
+        }
+    });
+    
+    canvas.addEventListener('mouseup', (e) => {
+        inputState.mouseButtons.delete(e.button);
+    });
+    
+    canvas.addEventListener('contextmenu', (e) => {
+        e.preventDefault(); // Prevent right-click menu
+    });
+    
+    // === TOUCH INPUT SYSTEM ===
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        
+        for (let touch of e.changedTouches) {
+            const gameCoords = window.viewportManager.screenToGame(touch.clientX, touch.clientY);
+            inputState.touches.set(touch.identifier, {
+                startPos: gameCoords,
+                currentPos: gameCoords,
+                startTime: performance.now()
+            });
+        }
+          inputState.lastInputTime = performance.now();
+        
+        if (!window.getGameRunning || !window.getGameRunning()) return;
+        
+        // Single touch = turn
+        if (e.touches.length === 1) {
+            handleTurn();
+        }
+        // Multi-touch = harvester
+        else if (e.touches.length >= 2) {
+            handleHarvesterDrop();
+        }
+    });
+    
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        
+        for (let touch of e.changedTouches) {
+            if (inputState.touches.has(touch.identifier)) {
+                const gameCoords = window.viewportManager.screenToGame(touch.clientX, touch.clientY);
+                inputState.touches.get(touch.identifier).currentPos = gameCoords;
+            }
+        }
+    });
+    
+    canvas.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        
+        for (let touch of e.changedTouches) {
+            inputState.touches.delete(touch.identifier);
+        }
+    });
+    
+    // === GAMEPAD SUPPORT ===
+    window.addEventListener('gamepadconnected', (e) => {
+        console.log(`🎮 Gamepad connected: ${e.gamepad.id}`);
+    });
+    
+    window.addEventListener('gamepaddisconnected', (e) => {
+        console.log(`🎮 Gamepad disconnected: ${e.gamepad.id}`);
+    });
+    
+    console.log('✅ Advanced input system initialized');
+}
+
+// ===== INPUT HANDLERS =====
+function handleTurn() {
+    // Try to turn the drone
+    if (window.drone && window.drone.turn()) {
+        // Visual feedback - screen flash
+        createScreenFlash('#00ffff', 0.1, 100);
+        
+        // Haptic feedback for mobile
+        if (navigator.vibrate) {
+            navigator.vibrate(50);
+        }
+    } else {
+        // Turn failed (cooldown)
+        createScreenFlash('#ff8800', 0.05, 50);
+    }
+}
+
+function handleHarvesterDrop() {
+    // Try to deploy a harvester
+    if (window.deployHarvester) {
+        const success = window.deployHarvester();
+        if (!success) {
+            // Already handled in deployHarvester function with visual feedback
+            return false;
+        }
+        return true;
+    }
+    
+    // Fallback if deployHarvester not available
+    if (window.gameState && window.gameState.harvesters >= window.gameState.maxHarvesters) {
+        createScreenFlash('#ff0000', 0.2, 150);
+        if (navigator.vibrate) {
+            navigator.vibrate([100, 50, 100]);
+        }
+        return false;
+    }
+    
+    // Visual feedback - green flash for fallback
+    createScreenFlash('#00ff00', 0.15, 120);
+    
+    // Haptic feedback
+    if (navigator.vibrate) {
+        navigator.vibrate([75, 25, 75]);
+    }
+    
+    return true;
+}
+
+// ===== INPUT UTILITIES =====
+function isKeyPressed(keyCode) {
+    return inputState.keys.has(keyCode);
+}
+
+function wasKeyJustPressed(keyCode, timeWindow = 100) {
+    const now = performance.now();
+    return inputState.inputBuffer.some(input => 
+        input.type === 'keydown' && 
+        input.code === keyCode && 
+        now - input.timestamp < timeWindow
+    );
+}
+
+function updateGamepadInput() {
+    const gamepads = navigator.getGamepads();
+    for (let i = 0; i < gamepads.length; i++) {
+        const gamepad = gamepads[i];
+        if (gamepad) {
+            // Button 0 (A/X) = Turn
+            if (gamepad.buttons[0].pressed) {
+                handleTurn();
+            }
+            
+            // Button 1 (B/Circle) = Harvester
+            if (gamepad.buttons[1].pressed) {
+                handleHarvesterDrop();
+            }
+            
+            // Start/Options button = Pause
+            if (gamepad.buttons[9].pressed) {
+                togglePause();
+            }
+        }
+    }
+}
+
+function cleanupInputBuffer() {
+    const now = performance.now();
+    const maxAge = 500; // Keep inputs for 500ms
+    
+    inputState.inputBuffer = inputState.inputBuffer.filter(
+        input => now - input.timestamp < maxAge
+    );
+}
+
+// ===== VISUAL FEEDBACK =====
+function createScreenFlash(color, opacity, duration) {
+    const flashElement = document.createElement('div');
+    flashElement.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background-color: ${color};
+        opacity: ${opacity};
+        pointer-events: none;
+        z-index: 9999;
+        transition: opacity ${duration}ms ease-out;
+    `;
+    
+    document.body.appendChild(flashElement);
+    
+    setTimeout(() => {
+        flashElement.style.opacity = '0';
+        setTimeout(() => {
+            document.body.removeChild(flashElement);
+        }, duration);
+    }, 50);
+}
+
+// Export for global access
+window.inputState = inputState;
+window.setupInputHandlers = setupInputHandlers;
+window.updateGamepadInput = updateGamepadInput;
+window.cleanupInputBuffer = cleanupInputBuffer;
+window.createScreenFlash = createScreenFlash;
+window.createScreenFlash = createScreenFlash;
+window.createScreenFlash = createScreenFlash;
