@@ -214,9 +214,9 @@ Glitch sound when corruption appears
 ✅ Add new energy types with increasing value
 
 🛠️ Upgrades
- Create upgrade menu UI
+✅ Create upgrade menu UI
 
- Code upgrade effects and level caps
+✅ Code upgrade effects and level caps
 
  Store upgrade data between runs
 

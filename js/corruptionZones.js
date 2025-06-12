@@ -25,8 +25,8 @@ class CorruptionZone {
         // Particle effects
         this.particles = [];
         this.maxParticles = 12;
+
         
-        console.log(`💀 Corruption zone spawned at (${x.toFixed(1)}, ${y.toFixed(1)})`);
     }
     
     update(deltaTime) {
@@ -203,6 +203,12 @@ class CorruptionZone {
 }
 
 // ===== CORRUPTION ZONE MANAGEMENT =====
+let corruptionSystem = {
+    showWarnings: false,
+    warningRange: 150,
+    warnings: []
+};
+
 let corruptionZones = [];
 let lastCorruptionSpawn = 0;
 let corruptionSpawnInterval = 3000; // Start spawning every 3 seconds
@@ -247,13 +253,61 @@ function spawnCorruptionZone() {
         const zone = new CorruptionZone(spawnX, spawnY);
         corruptionZones.push(zone);
         
-        console.log(`💀 Corruption zone spawned! Total zones: ${corruptionZones.length}`);
+      
     }
 }
 
 function renderCorruptionZones(ctx) {
+    // Render warning indicators if detection upgrade is active
+    if (corruptionSystem.showWarnings && window.drone && window.gameState && window.gameState.hasDetection) {
+        renderCorruptionWarnings(ctx);
+    }
+    
     corruptionZones.forEach(zone => {
         zone.render(ctx);
+    });
+}
+
+function renderCorruptionWarnings(ctx) {
+    if (!window.drone) return;
+    
+    const detectionRange = window.gameState.detectionRange || 150;
+    
+    corruptionZones.forEach(zone => {
+        const dx = zone.x - window.drone.x;
+        const dy = zone.y - window.drone.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance <= detectionRange && distance > zone.currentSize + 20) {
+            // Draw warning indicator
+            ctx.save();
+            
+            // Warning circle around corruption
+            ctx.strokeStyle = 'rgba(255, 255, 0, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.arc(zone.x, zone.y, zone.currentSize + 15, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Warning triangle above corruption
+            const triangleSize = 8;
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.8)';
+            ctx.beginPath();
+            ctx.moveTo(zone.x, zone.y - zone.currentSize - 25);
+            ctx.lineTo(zone.x - triangleSize, zone.y - zone.currentSize - 10);
+            ctx.lineTo(zone.x + triangleSize, zone.y - zone.currentSize - 10);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Warning text
+            ctx.fillStyle = 'rgba(255, 255, 0, 0.9)';
+            ctx.font = '10px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('!', zone.x, zone.y - zone.currentSize - 15);
+            
+            ctx.restore();
+        }
     });
 }
 
@@ -268,8 +322,7 @@ function checkCorruptionCollisions(drone) {
         
         if (distance < collisionDistance) {
             // Collision with corruption zone!
-            console.log('💀 CORRUPTION COLLISION! Resetting run...');
-            
+           
             // Visual feedback
             if (window.createScreenFlash) {
                 window.createScreenFlash('#ff0000', 0.5, 300);
@@ -292,13 +345,15 @@ function resetCorruptionZones() {
     lastCorruptionSpawn = performance.now();
     corruptionDifficulty = 1;
     corruptionSpawnInterval = 3000;
-    console.log('🔄 Corruption zones reset');
+   
 }
 
 // Export for global access
 window.CorruptionZone = CorruptionZone;
+window.corruptionSystem = corruptionSystem;
 window.corruptionZones = corruptionZones;
 window.updateCorruptionZones = updateCorruptionZones;
 window.renderCorruptionZones = renderCorruptionZones;
+window.renderCorruptionWarnings = renderCorruptionWarnings;
 window.checkCorruptionCollisions = checkCorruptionCollisions;
 window.resetCorruptionZones = resetCorruptionZones;

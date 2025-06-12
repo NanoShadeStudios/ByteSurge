@@ -7,9 +7,9 @@ class HomeScreen {
         this.ctx = ctx;
         this.hoveredMenuItem = -1;
         this.mouseX = 0;
-        this.mouseY = 0;
-        this.menuItems = [
+        this.mouseY = 0;        this.menuItems = [
             { text: 'START GAME', action: 'start', glow: 0 },
+            { text: 'SETTINGS', action: 'settings', glow: 0 },
             { text: 'CONTROLS', action: 'controls', glow: 0 },
             { text: 'ABOUT', action: 'about', glow: 0 }
         ];
@@ -24,13 +24,15 @@ class HomeScreen {
         
         console.log('🏠 Home Screen initialized');
     }
-    
-    initBackgroundParticles() {
+      initBackgroundParticles() {
         this.backgroundParticles = [];
+        const gameWidth = window.GAME_WIDTH || 1200;
+        const gameHeight = window.GAME_HEIGHT || 800;
+        
         for (let i = 0; i < 50; i++) {
             this.backgroundParticles.push({
-                x: Math.random() * window.GAME_WIDTH,
-                y: Math.random() * window.GAME_HEIGHT,
+                x: Math.random() * gameWidth,
+                y: Math.random() * gameHeight,
                 vx: (Math.random() - 0.5) * 20,
                 vy: (Math.random() - 0.5) * 20,
                 alpha: Math.random() * 0.5 + 0.2,
@@ -55,19 +57,25 @@ class HomeScreen {
                 item.glow = Math.max(targetGlow, item.glow - (deltaTime / 1000) * glowSpeed);
             }
         });
-        
-        // Update background particles
+          // Update background particles
         this.backgroundParticles.forEach(particle => {
             particle.x += particle.vx * (deltaTime / 1000);
             particle.y += particle.vy * (deltaTime / 1000);
             particle.phase += deltaTime * 0.002;
             
             // Wrap particles around screen
-            if (particle.x < 0) particle.x = window.GAME_WIDTH;
-            if (particle.x > window.GAME_WIDTH) particle.x = 0;
-            if (particle.y < 0) particle.y = window.GAME_HEIGHT;
-            if (particle.y > window.GAME_HEIGHT) particle.y = 0;
+            const gameWidth = window.GAME_WIDTH || 1200;
+            const gameHeight = window.GAME_HEIGHT || 800;
+            if (particle.x < 0) particle.x = gameWidth;
+            if (particle.x > gameWidth) particle.x = 0;
+            if (particle.y < 0) particle.y = gameHeight;
+            if (particle.y > gameHeight) particle.y = 0;
         });
+        
+        // Update settings menu if open
+        if (window.settingsMenuUI && window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
+            window.settingsMenuUI.update(deltaTime);
+        }
     }
     
     render() {
@@ -94,11 +102,15 @@ class HomeScreen {
         
         // Render scan lines effect
         this.renderScanLines();
-        
-        if (this.showingSubMenu) {
+          if (this.showingSubMenu) {
             this.renderSubMenu();
         } else {
             this.renderMainMenu();
+        }
+        
+        // Render settings menu if open (render last so it's on top)
+        if (window.settingsMenuUI && window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
+            window.settingsMenuUI.render(this.ctx);
         }
     }
     
@@ -365,10 +377,15 @@ class HomeScreen {
             height: 40
         };
     }
-    
-    updateMousePosition(x, y) {
+      updateMousePosition(x, y) {
         this.mouseX = x;
         this.mouseY = y;
+        
+        // Handle settings menu mouse movement first if it's open
+        if (window.settingsMenuUI && window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
+            window.settingsMenuUI.updateMousePosition(x, y);
+            return;
+        }
         
         // Check which menu item is being hovered
         this.hoveredMenuItem = -1;
@@ -383,8 +400,12 @@ class HomeScreen {
                 }
             }
         }
-    }
-      handleKeyDown(event) {
+    }    handleKeyDown(event) {
+        // Handle settings menu input first if it's open
+        if (window.settingsMenuUI && window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
+            return window.settingsMenuUI.handleInput(event.code);
+        }
+        
         if (this.showingSubMenu) {
             if (event.code === 'Escape') {
                 this.showingSubMenu = null;
@@ -400,8 +421,12 @@ class HomeScreen {
         }
         
         return false;
-    }
-      handleClick(x, y) {
+    }    handleClick(x, y) {
+        // Handle settings menu clicks first if it's open
+        if (window.settingsMenuUI && window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
+            return window.settingsMenuUI.handleMouseClick(x, y, 0); // Left click
+        }
+        
         if (this.showingSubMenu) {
             this.showingSubMenu = null;
             return true;
@@ -418,8 +443,7 @@ class HomeScreen {
         
         return false;
     }
-    
-    selectMenuItem(index = this.hoveredMenuItem) {
+      selectMenuItem(index = this.hoveredMenuItem) {
         if (index < 0 || index >= this.menuItems.length) return false;
         
         const selectedItem = this.menuItems[index];
@@ -427,6 +451,12 @@ class HomeScreen {
         switch (selectedItem.action) {
             case 'start':
                 return 'start_game'; // Signal to start the game
+                
+            case 'settings':
+                if (window.openSettingsMenu) {
+                    window.openSettingsMenu();
+                }
+                return true;
                 
             case 'controls':
                 this.showingSubMenu = 'controls';

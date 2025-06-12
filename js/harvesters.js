@@ -1,6 +1,27 @@
 // ByteSurge: Infinite Loop - Harvester System
 // Deployable energy-generating stations
 
+// ===== HARVESTER SYSTEM =====
+let harvesterSystem = {
+    harvesters: [],
+    globalSpeedMultiplier: 1,
+    globalIntervalDivisor: 1,
+    
+    applyUpgradesToHarvester(harvester) {
+        harvester.energyGenerationRate = harvester.baseEnergyGenerationRate * this.globalSpeedMultiplier;
+        harvester.generationInterval = harvester.baseGenerationInterval / this.globalIntervalDivisor;
+    },
+    
+    applyUpgradesToAllHarvesters() {
+        this.harvesters.forEach(harvester => {
+            this.applyUpgradesToHarvester(harvester);
+        });
+    }
+};
+
+// Legacy array for backward compatibility
+let harvesters = [];
+
 // ===== HARVESTER CLASS =====
 class Harvester {
     constructor(x, y) {
@@ -14,10 +35,11 @@ class Harvester {
         this.rotationAngle = 0;
         this.glowIntensity = 0;
         this.deployAnimation = 1; // Starts at full scale, animates to normal
-        
-        // Energy generation
-        this.energyGenerationRate = 1; // Energy per generation cycle
-        this.generationInterval = 2000; // Generate energy every 2 seconds
+          // Energy generation
+        this.baseEnergyGenerationRate = 1; // Base energy per generation cycle
+        this.energyGenerationRate = 1; // Current energy per generation cycle (affected by upgrades)
+        this.baseGenerationInterval = 2000; // Base: Generate energy every 2 seconds
+        this.generationInterval = 2000; // Current interval (affected by upgrades)
         this.lastEnergyGeneration = performance.now();
         this.totalEnergyGenerated = 0;
         
@@ -222,7 +244,7 @@ class Harvester {
 }
 
 // ===== HARVESTER MANAGEMENT =====
-let harvesters = [];
+// harvesters array is already declared above with harvesterSystem
 let maxHarvesters = 3;
 
 function updateHarvesters(deltaTime) {
@@ -234,14 +256,14 @@ function updateHarvesters(deltaTime) {
 
 function deployHarvester() {
     if (!window.drone) {
-        console.log('❌ Cannot deploy harvester: No drone found');
         return false;
     }
     
+    // Get current max harvesters (affected by upgrades)
+    const currentMaxHarvesters = window.gameState ? window.gameState.maxHarvesters : 3;
+    
     // Check if we've reached the limit
-    if (harvesters.length >= maxHarvesters) {
-        console.log(`❌ Cannot deploy harvester: Limit reached (${harvesters.length}/${maxHarvesters})`);
-        
+    if (harvesters.length >= currentMaxHarvesters) {
         // Visual feedback for limit reached
         if (window.createScreenFlash) {
             window.createScreenFlash('#ff0000', 0.2, 150);
@@ -274,10 +296,16 @@ function deployHarvester() {
     // Make sure harvester is within bounds
     const boundedX = Math.max(20, Math.min(window.GAME_WIDTH - 20, deployX));
     const boundedY = Math.max(20, Math.min(window.GAME_HEIGHT - 20, deployY));
-    
-    // Create new harvester
+      // Create new harvester
     const harvester = new Harvester(boundedX, boundedY);
+    
+    // Apply current upgrades to new harvester
+    if (window.harvesterSystem) {
+        window.harvesterSystem.applyUpgradesToHarvester(harvester);
+    }
+    
     harvesters.push(harvester);
+    harvesterSystem.harvesters.push(harvester);
     
     // Update game state
     if (window.gameState) {
@@ -294,7 +322,6 @@ function deployHarvester() {
         navigator.vibrate([75, 25, 75]);
     }
     
-    console.log(`🏭 Harvester deployed! Total: ${harvesters.length}/${maxHarvesters}`);
     return true;
 }
 
@@ -320,8 +347,23 @@ function resetHarvesters() {
     console.log('🔄 Harvesters reset');
 }
 
+function applyHarvesterUpgrades() {
+    // Get harvester rate upgrade level
+    const harvesterRateLevel = window.upgradeSystem ? 
+        window.upgradeSystem.upgrades.find(u => u.id === 'harvesterRate')?.currentLevel || 0 : 0;
+    
+    // Apply upgrades to all existing harvesters
+    harvesters.forEach(harvester => {
+        // Harvester rate upgrade: reduce generation interval
+        const rateMultiplier = 1 + (harvesterRateLevel * 0.2); // 20% faster per level
+        harvester.generationInterval = harvester.baseGenerationInterval / rateMultiplier;
+        harvester.energyGenerationRate = Math.floor(harvester.baseEnergyGenerationRate * (1 + harvesterRateLevel * 0.1)); // 10% more energy per level
+    });
+}
+
 // Export for global access
 window.Harvester = Harvester;
+window.harvesterSystem = harvesterSystem;
 window.harvesters = harvesters;
 window.updateHarvesters = updateHarvesters;
 window.deployHarvester = deployHarvester;
@@ -329,3 +371,4 @@ window.renderHarvesters = renderHarvesters;
 window.getHarvesterStats = getHarvesterStats;
 window.getTotalHarvesterEnergy = getTotalHarvesterEnergy;
 window.resetHarvesters = resetHarvesters;
+window.applyHarvesterUpgrades = applyHarvesterUpgrades;

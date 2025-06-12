@@ -300,3 +300,59 @@ body {
         margin-bottom: 10px;
     }
 }
+
+/* ===== ACCESSIBILITY STYLES ===== */
+/* High contrast mode */
+body.high-contrast {
+    background: #000000 !important;
+    color: #ffffff !important;
+}
+
+body.high-contrast .game-container {
+    background: #000000 !important;
+    border: 2px solid #ffffff !important;
+}
+
+body.high-contrast .game-stats {
+    background: #000000 !important;
+    border: 2px solid #ffffff !important;
+    color: #ffffff !important;
+}
+
+body.high-contrast .stat-value {
+    color: #ffff00 !important;
+    text-shadow: none !important;
+}
+
+body.high-contrast .key {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border: 1px solid #ffffff !important;
+}
+
+/* Large text mode */
+body.large-text {
+    font-size: 1.2em;
+}
+
+body.large-text .game-title {
+    font-size: 3rem;
+}
+
+body.large-text .game-subtitle {
+    font-size: 0.8rem;
+}
+
+body.large-text .stat-label,
+body.large-text .stat-value {
+    font-size: 16px;
+}
+
+body.large-text .controls {
+    font-size: 12px;
+}
+
+body.large-text .key {
+    padding: 6px 10px;
+    font-size: 12px;
+}

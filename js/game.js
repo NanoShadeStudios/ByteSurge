@@ -88,7 +88,7 @@ let zoneSystem = {
             // Visual feedback
             this.triggerZoneTransition(oldZone, newZone, zoneBonus);
             
-            console.log(`🌍 Zone Progression! Entering Zone ${newZone} - Bonus: ${zoneBonus} energy`);
+         
             
             return true;
         }
@@ -109,7 +109,8 @@ let zoneSystem = {
         // Show zone transition message on canvas
         this.showZoneTransition(oldZone, newZone, bonus);
         
-        console.log(`Zone ${oldZone} → Zone ${newZone} | +${bonus} Energy Bonus!`);
+      
+        
     },
     
     showZoneTransition(oldZone, newZone, bonus) {
@@ -237,17 +238,17 @@ function setupCanvas() {
     window.GAME_HEIGHT = baseHeight;
     window.CANVAS_DPR = dpr;
     
-    console.log(`✅ Canvas setup complete: ${baseWidth}x${baseHeight}px`);
+   
 }
 
 // ===== GAME CONTROLS =====
 function togglePause() {
     gamePaused = !gamePaused;
-    console.log(gamePaused ? '⏸️ Game Paused' : '▶️ Game Resumed');
+  
 }
 
 function resetGame(goToHomeScreen = false) {
-    console.log('🔄 Game Reset');
+   
     
     // Reset game state
     gameState.distance = 0;
@@ -321,13 +322,13 @@ function returnToHomeScreen() {
         homeScreen = new window.HomeScreen(canvas, ctx);
     }
     
-    console.log('🏠 Returned to home screen');
+  
 }
 
 function toggleFullscreen() {
     if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen().catch(err => {
-            console.log('Fullscreen request failed:', err);
+           
         });
     } else {
         document.exitFullscreen();
@@ -349,11 +350,16 @@ function startGame() {
     // Reset game state
     resetGame();
     
+    // Apply saved upgrades
+    if (window.reinitializeUpgrades) {
+        window.reinitializeUpgrades();
+    }
+    
     // Start the actual game
     showingHomeScreen = false;
     gameRunning = true;
     
-    console.log('🎮 Game started!');
+   
 }
 
 // ===== GAME LOOP =====
@@ -373,7 +379,7 @@ function gameLoop(currentTime) {
             if (window.HomeScreen) {
                 homeScreen = new window.HomeScreen(canvas, ctx);
             } else {
-                console.error('❌ HomeScreen class not found!');
+              
                 // Fallback: start game directly
                 showingHomeScreen = false;
                 startGame();
@@ -396,15 +402,8 @@ function gameLoop(currentTime) {
     const rawDeltaTime = currentTime - lastTime;
     const deltaTime = Math.min(rawDeltaTime, 33.33); // Cap at ~30fps minimum
     lastTime = currentTime;
-    
-    // Update performance metrics
+      // Update performance metrics
     updatePerformanceMetrics(frameStartTime, deltaTime);
-    
-    // Skip frame if game is paused
-    if (gamePaused) {
-        requestAnimationFrame(gameLoop);
-        return;
-    }
     
     // === CLEAR PHASE ===
     clearCanvas();
@@ -415,10 +414,20 @@ function gameLoop(currentTime) {
     // Update gamepad input
     if (window.updateGamepadInput) {
         window.updateGamepadInput();
+    }    // Update game logic (skip if paused or upgrade menu is open, but still render UI)
+    const isUpgradeMenuOpen = window.isUpgradeMenuOpen && window.isUpgradeMenuOpen();
+    const isSettingsMenuOpen = window.isSettingsMenuOpen && window.isSettingsMenuOpen();
+    if (!gamePaused && !isUpgradeMenuOpen && !isSettingsMenuOpen) {
+        updateGame(deltaTime);
+    } else {
+        // Still update menu animations when paused or menus are open
+        if (window.upgradeMenuUI) {
+            window.upgradeMenuUI.update(deltaTime);
+        }
+        if (window.settingsMenuUI) {
+            window.settingsMenuUI.update(deltaTime);
+        }
     }
-    
-    // Update game logic
-    updateGame(deltaTime);
     
     // Clean up old input buffer entries
     if (window.cleanupInputBuffer) {
@@ -426,14 +435,14 @@ function gameLoop(currentTime) {
     }
     
     performanceMetrics.updateTime = performance.now() - updateStartTime;
-    
-    // === RENDER PHASE ===
+      // === RENDER PHASE ===
     const renderStartTime = performance.now();
+      // Render game objects (skip if paused or upgrade menu is open)
+    if (!gamePaused && !isUpgradeMenuOpen && !isSettingsMenuOpen) {
+        renderGame();
+    }
     
-    // Render game objects
-    renderGame();
-    
-    // Render UI overlays
+    // Always render UI overlays (including upgrade menu)
     renderUI();
     
     // Render debug information (if enabled)
@@ -517,6 +526,11 @@ function clearCanvas() {
 function updateGame(deltaTime) {
     if (!gameRunning) return;
     
+    // Update upgrade menu animations
+    if (window.upgradeMenuUI) {
+        window.upgradeMenuUI.update(deltaTime);
+    }
+    
     // Update drone
     if (drone) {
         drone.update(deltaTime);
@@ -552,7 +566,7 @@ function updateGame(deltaTime) {
             
             // Log zone-enhanced collection
             if (zoneData.energyMultiplier > 1) {
-                console.log(`⚡ Zone ${gameState.currentZone} Energy Boost! ${energyCollected} → ${multipliedEnergy} (+${Math.floor((zoneData.energyMultiplier - 1) * 100)}%)`);
+               
             }
         }
     }
@@ -673,8 +687,11 @@ function updateUI() {
 }
 
 function renderUI() {
+    // Render zone transition overlay
+    zoneSystem.renderZoneTransition(ctx);
+    
     // Render pause indicator
-    if (gamePaused) {
+    if (gamePaused && !window.isUpgradeMenuOpen()) {
         ctx.save();
         ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
         ctx.fillRect(0, 0, window.GAME_WIDTH, window.GAME_HEIGHT);
@@ -689,9 +706,16 @@ function renderUI() {
         ctx.fillText('Press P to Resume', window.GAME_WIDTH / 2, window.GAME_HEIGHT / 2 + 40);
         
         ctx.restore();    }
+      // Render upgrade menu (render LAST so it's on top)
+    if (window.upgradeMenuUI) {
+       
+        window.upgradeMenuUI.render(ctx);
+    }
     
-    // Render zone transition overlay
-    zoneSystem.renderZoneTransition(ctx);
+    // Render settings menu (render LAST so it's on top)
+    if (window.settingsMenuUI) {
+        window.settingsMenuUI.render(ctx);
+    }
     
     // Render input indicators
     renderInputIndicators();
@@ -772,7 +796,7 @@ window.addEventListener('resize', () => {
     resizeTimeout = setTimeout(() => {
         setupCanvas();
         viewportManager.updateScale();
-        console.log(`🔄 Viewport Resized - Scale: ${viewportManager.scale.toFixed(2)}x`);
+        
     }, 100);
 });
 
@@ -782,28 +806,47 @@ window.addEventListener('orientationchange', () => {
         if (gameInitialized) {
             setupCanvas();
             viewportManager.updateScale();
-            console.log('📱 Orientation Changed - Canvas Rescaled');
+           
         }
     }, 300);
 });
 
 // ===== GAME INITIALIZATION =====
 async function initializeGame() {
-    console.log('🚀 ByteSurge: Infinite Loop - Advanced Initialization...');
-    
-    // Enable debug mode if running locally
-    window.DEBUG_MODE = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+   
+      // Enable debug mode if running locally
+    window.DEBUG_MODE = false; // Disabled for clean UI
     
     // Setup canvas with enhanced scaling
-    setupCanvas();
-      // Initialize opening animation
-    if (window.OpeningAnimation) {
+    setupCanvas();    // Initialize opening animation (check settings first)
+    if (window.OpeningAnimation && !window.shouldSkipOpeningAnimation()) {
         openingAnimation = new window.OpeningAnimation(canvas, ctx);
         // Hide game UI elements during opening animation
         const gameContainer = document.querySelector('.game-container');
         if (gameContainer) {
             gameContainer.classList.add('opening-animation');
         }
+    } else {
+        // Skip opening animation - go directly to home screen
+        showingOpeningAnimation = false;
+        showingHomeScreen = true;
+        
+        // Show game UI elements immediately
+        const gameContainer = document.querySelector('.game-container');
+        if (gameContainer) {
+            gameContainer.classList.remove('opening-animation');
+        }
+        
+        // Initialize home screen immediately
+        if (window.HomeScreen) {
+            homeScreen = new window.HomeScreen(canvas, ctx);
+        } else {
+            console.error('❌ HomeScreen class not available, starting game directly');
+            showingHomeScreen = false;
+            startGame();
+        }
+        
+        console.log('⏭️ Opening animation skipped via settings');
     }
     
     // Initialize viewport management
@@ -830,10 +873,25 @@ async function initializeGame() {
             const result = homeScreen.handleClick(x, y);
             if (result === 'start_game') {
                 startGame();
+            }        } else {
+            // Handle upgrade menu clicks during gameplay
+            if (window.upgradeMenuUI && window.isUpgradeMenuOpen && window.isUpgradeMenuOpen()) {
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (window.GAME_WIDTH / rect.width);
+                const y = (e.clientY - rect.top) * (window.GAME_HEIGHT / rect.height);
+                
+                window.upgradeMenuUI.handleMouseClick(x, y, 0); // Left click
+            }
+            // Handle settings menu clicks during gameplay
+            else if (window.settingsMenuUI && window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (window.GAME_WIDTH / rect.width);
+                const y = (e.clientY - rect.top) * (window.GAME_HEIGHT / rect.height);
+                
+                window.settingsMenuUI.handleMouseClick(x, y, 0); // Left click
             }
         }
-    });
-      canvas.addEventListener('mousemove', (e) => {
+    });canvas.addEventListener('mousemove', (e) => {
         if (showingHomeScreen && homeScreen) {
             const rect = canvas.getBoundingClientRect();
             const x = (e.clientX - rect.left) * (window.GAME_WIDTH / rect.width);
@@ -846,6 +904,36 @@ async function initializeGame() {
                 canvas.style.cursor = 'pointer';
             } else {
                 canvas.style.cursor = 'default';
+            }        } else {
+            // Handle upgrade menu hover during gameplay
+            if (window.upgradeMenuUI && window.isUpgradeMenuOpen && window.isUpgradeMenuOpen()) {
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (window.GAME_WIDTH / rect.width);
+                const y = (e.clientY - rect.top) * (window.GAME_HEIGHT / rect.height);
+                
+                window.upgradeMenuUI.updateMousePosition(x, y);
+                
+                // Update cursor style based on hover
+                if (window.upgradeMenuUI.hoveredUpgrade >= 0) {
+                    canvas.style.cursor = 'pointer';
+                } else {
+                    canvas.style.cursor = 'default';
+                }
+            }
+            // Handle settings menu hover during gameplay
+            else if (window.settingsMenuUI && window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
+                const rect = canvas.getBoundingClientRect();
+                const x = (e.clientX - rect.left) * (window.GAME_WIDTH / rect.width);
+                const y = (e.clientY - rect.top) * (window.GAME_HEIGHT / rect.height);
+                
+                window.settingsMenuUI.updateMousePosition(x, y);
+                
+                // Update cursor style based on hover
+                if (window.settingsMenuUI.hoveredCategory >= 0 || window.settingsMenuUI.hoveredSetting >= 0) {
+                    canvas.style.cursor = 'pointer';
+                } else {
+                    canvas.style.cursor = 'default';
+                }
             }
         }
     });
@@ -867,13 +955,19 @@ async function initializeGame() {
     
     // Initialize performance monitoring
     lastTime = performance.now();
-    lastFpsTime = performance.now();
-      // Create drone at center of screen
+    lastFpsTime = performance.now();    // Create drone at center of screen
     if (window.Drone) {
         drone = new window.Drone(window.GAME_WIDTH / 2, window.GAME_HEIGHT / 2);
         window.drone = drone; // Update global reference
     } else {
-        console.error('❌ Drone class not found!');
+       
+    }
+    
+    // Initialize and apply upgrades
+    if (window.upgradeSystem) {
+        window.upgradeSystem.loadUpgrades();
+        window.upgradeSystem.applyAllUpgrades();
+      
     }
     
     // Hide loading text and keep stats hidden until animation completes

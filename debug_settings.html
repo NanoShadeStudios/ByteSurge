@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings Debug Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #222; color: #fff; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #444; }
+        button { padding: 10px; margin: 5px; background: #333; color: #fff; border: 1px solid #666; cursor: pointer; }
+        button:hover { background: #444; }
+        #log { background: #111; padding: 10px; height: 200px; overflow-y: scroll; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>ByteSurge Settings Debug Test</h1>
+    
+    <div class="test-section">
+        <h2>LocalStorage Test</h2>
+        <button onclick="testLocalStorage()">Test localStorage</button>
+        <button onclick="clearLocalStorage()">Clear localStorage</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Settings Test</h2>
+        <button onclick="testToggleSetting()">Toggle skipOpeningAnimation</button>
+        <button onclick="checkSettings()">Check Current Settings</button>
+        <button onclick="resetAllSettings()">Reset All Settings</button>
+    </div>
+    
+    <div class="test-section">
+        <h2>Debug Log</h2>
+        <div id="log"></div>
+        <button onclick="clearLog()">Clear Log</button>
+    </div>
+
+    <script src="js/settings.js"></script>
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function testLocalStorage() {
+            try {
+                localStorage.setItem('test_key', 'test_value');
+                const retrieved = localStorage.getItem('test_key');
+                if (retrieved === 'test_value') {
+                    log('✅ localStorage is working correctly');
+                } else {
+                    log('❌ localStorage read failed');
+                }
+                localStorage.removeItem('test_key');
+            } catch (e) {
+                log('❌ localStorage error: ' + e.message);
+            }
+        }
+
+        function clearLocalStorage() {
+            localStorage.removeItem('bytesurge_settings');
+            log('🗑️ Cleared ByteSurge settings from localStorage');
+        }
+
+        function testToggleSetting() {
+            const currentValue = window.settingsSystem.getSetting('skipOpeningAnimation');
+            log(`Current skipOpeningAnimation: ${currentValue}`);
+            
+            window.settingsSystem.setSetting('skipOpeningAnimation', !currentValue);
+            
+            const newValue = window.settingsSystem.getSetting('skipOpeningAnimation');
+            log(`New skipOpeningAnimation: ${newValue}`);
+            
+            // Check localStorage directly
+            const saved = localStorage.getItem('bytesurge_settings');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                log(`localStorage skipOpeningAnimation: ${parsed.skipOpeningAnimation}`);
+            } else {
+                log('❌ No settings found in localStorage');
+            }
+        }
+
+        function checkSettings() {
+            log('=== Current Settings ===');
+            Object.keys(window.gameSettings).forEach(key => {
+                log(`${key}: ${window.gameSettings[key]}`);
+            });
+            
+            const saved = localStorage.getItem('bytesurge_settings');
+            if (saved) {
+                log('=== localStorage Settings ===');
+                const parsed = JSON.parse(saved);
+                Object.keys(parsed).forEach(key => {
+                    log(`${key}: ${parsed[key]}`);
+                });
+            } else {
+                log('❌ No settings in localStorage');
+            }
+        }
+
+        function resetAllSettings() {
+            window.settingsSystem.resetSettings();
+            log('🔄 Reset all settings to defaults');
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '';
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            log('🚀 Debug page loaded');
+            log('📋 Settings system available: ' + (!!window.settingsSystem));
+            testLocalStorage();
+        });
+    </script>
+</body>
+</html>

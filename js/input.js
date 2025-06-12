@@ -32,8 +32,53 @@ function setupInputHandlers() {
         // Maintain buffer size
         if (inputState.inputBuffer.length > inputState.maxBufferSize) {
             inputState.inputBuffer.shift();
+        }        // Handle upgrade menu input first (works even when game isn't running)
+        if (window.upgradeMenuUI) {
+            if (window.upgradeMenuUI.handleInput(e.code)) {
+                e.preventDefault();
+                return;
+            }
         }
-          // Handle game-specific inputs
+        
+        // Handle settings menu input
+        if (window.settingsMenuUI) {
+            if (window.settingsMenuUI.handleInput(e.code)) {
+                e.preventDefault();
+                return;
+            }
+        }
+          // Handle upgrade menu toggle
+        if (e.code === 'KeyU') {
+            e.preventDefault();
+            console.log('🔑 U key pressed - toggling upgrade menu');
+            if (window.isUpgradeMenuOpen && window.isUpgradeMenuOpen()) {
+                console.log('Closing upgrade menu');
+                window.closeUpgradeMenu();
+            } else if (window.openUpgradeMenu) {
+                console.log('Opening upgrade menu');
+                window.openUpgradeMenu();
+            } else {
+                console.error('❌ openUpgradeMenu function not found!');
+            }
+            return;        }
+
+        // Handle settings menu toggle (works even when game isn't running)
+        if (e.code === 'Escape') {
+            e.preventDefault();
+            console.log('🔑 ESC key pressed - toggling settings menu');
+            if (window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
+                console.log('Closing settings menu');
+                window.closeSettingsMenu();
+            } else if (window.openSettingsMenu) {
+                console.log('Opening settings menu');
+                window.openSettingsMenu();
+            } else {
+                console.error('❌ openSettingsMenu function not found!');
+            }
+            return;
+        }
+
+        // Handle game-specific inputs
         if (!window.getGameRunning || !window.getGameRunning()) return;
           switch(e.code) {
             case 'Space':
@@ -52,14 +97,7 @@ function setupInputHandlers() {
                 if (e.ctrlKey) {
                     e.preventDefault();
                     resetGame();
-                }
-                break;
-            case 'Escape':
-                e.preventDefault();
-                if (window.resetGame) {
-                    window.resetGame(true); // Return to home screen
-                }
-                break;
+                }                break;
             case 'F11':
                 e.preventDefault();
                 toggleFullscreen();
@@ -89,15 +127,41 @@ function setupInputHandlers() {
     
     // === MOUSE INPUT SYSTEM ===
     const canvas = document.getElementById('gameCanvas');
-    
-    canvas.addEventListener('mousemove', (e) => {
+      canvas.addEventListener('mousemove', (e) => {
         const rect = canvas.getBoundingClientRect();
         const gameCoords = window.viewportManager.screenToGame(e.clientX, e.clientY);
         inputState.mousePos = gameCoords;
-    });
-      canvas.addEventListener('mousedown', (e) => {
+          // Forward mouse movement to upgrade menu if open
+        if (window.upgradeMenuUI && window.isUpgradeMenuOpen && window.isUpgradeMenuOpen()) {
+            window.upgradeMenuUI.updateMousePosition(gameCoords.x, gameCoords.y);
+        }
+        
+        // Forward mouse movement to settings menu if open
+        if (window.settingsMenuUI && window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
+            window.settingsMenuUI.updateMousePosition(gameCoords.x, gameCoords.y);
+        }
+    });    canvas.addEventListener('mousedown', (e) => {
         inputState.mouseButtons.add(e.button);
         inputState.lastInputTime = performance.now();
+          // Handle upgrade menu clicks first
+        if (window.upgradeMenuUI && window.isUpgradeMenuOpen && window.isUpgradeMenuOpen()) {
+            const rect = canvas.getBoundingClientRect();
+            const gameCoords = window.viewportManager.screenToGame(e.clientX, e.clientY);
+            if (window.upgradeMenuUI.handleMouseClick(gameCoords.x, gameCoords.y, e.button)) {
+                e.preventDefault();
+                return;
+            }
+        }
+        
+        // Handle settings menu clicks
+        if (window.settingsMenuUI && window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
+            const rect = canvas.getBoundingClientRect();
+            const gameCoords = window.viewportManager.screenToGame(e.clientX, e.clientY);
+            if (window.settingsMenuUI.handleMouseClick(gameCoords.x, gameCoords.y, e.button)) {
+                e.preventDefault();
+                return;
+            }
+        }
         
         if (!window.getGameRunning || !window.getGameRunning()) return;
         e.preventDefault();

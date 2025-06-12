@@ -9,12 +9,13 @@ class Drone {
         this.y = y;
         this.startX = x;
         this.startY = y;
-        
-        // Direction system (0=right, 1=down, 2=left, 3=up)
+          // Direction system (0=right, 1=down, 2=left, 3=up)
         this.direction = 0;
-        this.speed = 120; // pixels per second
+        this.baseSpeed = 120; // Base pixels per second
+        this.speed = 120; // Current pixels per second (affected by upgrades)
         this.turnCooldown = 0;
         this.minTurnDelay = 100; // ms between turns
+        this.turnSmoothness = 1; // Affected by auto-turn assist upgrade
         
         // Visual properties
         this.size = 10;
