@@ -9,7 +9,9 @@ const gameStats = document.getElementById('gameStats') || null;
 
 // ===== OPENING ANIMATION =====
 let openingAnimation = null;
+let homeScreen = null;
 let showingOpeningAnimation = true;
+let showingHomeScreen = false;
 
 // ===== GAME STATE MANAGEMENT =====
 let gameInitialized = false;
@@ -244,7 +246,7 @@ function togglePause() {
     console.log(gamePaused ? '⏸️ Game Paused' : '▶️ Game Resumed');
 }
 
-function resetGame() {
+function resetGame(goToHomeScreen = false) {
     console.log('🔄 Game Reset');
     
     // Reset game state
@@ -276,10 +278,50 @@ function resetGame() {
     if (window.resetHarvesters) {
         window.resetHarvesters();
     }
-      // Visual feedback
-    if (window.createScreenFlash) {
-        window.createScreenFlash('#ffffff', 0.3, 200);
+    
+    // Check if we should return to home screen
+    if (goToHomeScreen) {
+        returnToHomeScreen();
+        return;
     }
+    
+    // Reset harvesters
+    if (window.resetHarvesters) {
+        window.resetHarvesters();
+    }
+    
+    if (goToHomeScreen) {
+        returnToHomeScreen();
+    } else {
+        // Visual feedback
+        if (window.createScreenFlash) {
+            window.createScreenFlash('#ffffff', 0.3, 200);
+        }
+    }
+}
+
+function returnToHomeScreen() {
+    // Stop the game
+    gameRunning = false;
+    gamePaused = false;
+    
+    // Hide game stats
+    if (gameStats) {
+        gameStats.style.display = 'none';
+    }
+    
+    // Reset game state
+    resetGame();
+    
+    // Show home screen
+    showingHomeScreen = true;
+    
+    // Re-initialize home screen if needed
+    if (!homeScreen && window.HomeScreen) {
+        homeScreen = new window.HomeScreen(canvas, ctx);
+    }
+    
+    console.log('🏠 Returned to home screen');
 }
 
 function toggleFullscreen() {
@@ -292,6 +334,28 @@ function toggleFullscreen() {
     }
 }
 
+function startGame() {
+    // Show game UI elements
+    const gameContainer = document.querySelector('.game-container');
+    if (gameContainer) {
+        gameContainer.classList.remove('opening-animation');
+    }
+    
+    // Show game stats
+    if (gameStats) {
+        gameStats.style.display = 'block';
+    }
+    
+    // Reset game state
+    resetGame();
+    
+    // Start the actual game
+    showingHomeScreen = false;
+    gameRunning = true;
+    
+    console.log('🎮 Game started!');
+}
+
 // ===== GAME LOOP =====
 function gameLoop(currentTime) {
     if (!gameInitialized) return;
@@ -301,21 +365,28 @@ function gameLoop(currentTime) {
     // Handle opening animation
     if (showingOpeningAnimation && openingAnimation) {
         const animationComplete = openingAnimation.update(currentTime);
-        openingAnimation.render();
-          if (animationComplete) {
+        openingAnimation.render();        if (animationComplete) {
             showingOpeningAnimation = false;
-            // Show game UI elements
-            const gameContainer = document.querySelector('.game-container');
-            if (gameContainer) {
-                gameContainer.classList.remove('opening-animation');
-            }
-            // Show game stats
-            if (gameStats) {
-                gameStats.style.display = 'block';
-            }
-            // Start the actual game
-            gameRunning = true;
-        }
+            showingHomeScreen = true;
+            
+            // Initialize home screen
+            if (window.HomeScreen) {
+                homeScreen = new window.HomeScreen(canvas, ctx);
+            } else {
+                console.error('❌ HomeScreen class not found!');
+                // Fallback: start game directly
+                showingHomeScreen = false;
+                startGame();
+            }        }
+        
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+    
+    // Handle home screen
+    if (showingHomeScreen && homeScreen) {
+        homeScreen.update(currentTime - lastTime);
+        homeScreen.render();
         
         requestAnimationFrame(gameLoop);
         return;
@@ -748,13 +819,49 @@ async function initializeGame() {
         if (showingOpeningAnimation && openingAnimation) {
             openingAnimation.skipAnimation();
         }
-    };
-    
-    canvas.addEventListener('click', skipAnimation);
-    window.addEventListener('keydown', (e) => {
-        if ((e.code === 'Space' || e.code === 'Enter' || e.code === 'Escape') && showingOpeningAnimation) {
-            e.preventDefault();
+    };    canvas.addEventListener('click', (e) => {
+        if (showingOpeningAnimation && openingAnimation) {
             skipAnimation();
+        } else if (showingHomeScreen && homeScreen) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (window.GAME_WIDTH / rect.width);
+            const y = (e.clientY - rect.top) * (window.GAME_HEIGHT / rect.height);
+            
+            const result = homeScreen.handleClick(x, y);
+            if (result === 'start_game') {
+                startGame();
+            }
+        }
+    });
+      canvas.addEventListener('mousemove', (e) => {
+        if (showingHomeScreen && homeScreen) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (window.GAME_WIDTH / rect.width);
+            const y = (e.clientY - rect.top) * (window.GAME_HEIGHT / rect.height);
+            
+            homeScreen.updateMousePosition(x, y);
+            
+            // Update cursor style based on hover
+            if (homeScreen.hoveredMenuItem >= 0) {
+                canvas.style.cursor = 'pointer';
+            } else {
+                canvas.style.cursor = 'default';
+            }
+        }
+    });
+    
+    window.addEventListener('keydown', (e) => {
+        if (showingOpeningAnimation) {
+            if (e.code === 'Space' || e.code === 'Enter' || e.code === 'Escape') {
+                e.preventDefault();
+                skipAnimation();
+            }
+        } else if (showingHomeScreen && homeScreen) {
+            e.preventDefault();
+            const result = homeScreen.handleKeyDown(e);
+            if (result === 'start_game') {
+                startGame();
+            }
         }
     });
     
@@ -796,6 +903,8 @@ window.drone = null; // Will be set during initialization
 window.viewportManager = viewportManager;
 window.togglePause = togglePause;
 window.resetGame = resetGame;
+window.returnToHomeScreen = returnToHomeScreen;
+window.startGame = startGame;
 window.toggleFullscreen = toggleFullscreen;
 
 // ===== CONSOLE BRANDING =====

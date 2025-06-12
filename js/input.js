@@ -35,8 +35,7 @@ function setupInputHandlers() {
         }
           // Handle game-specific inputs
         if (!window.getGameRunning || !window.getGameRunning()) return;
-        
-        switch(e.code) {
+          switch(e.code) {
             case 'Space':
                 e.preventDefault();
                 handleTurn();
@@ -53,6 +52,12 @@ function setupInputHandlers() {
                 if (e.ctrlKey) {
                     e.preventDefault();
                     resetGame();
+                }
+                break;
+            case 'Escape':
+                e.preventDefault();
+                if (window.resetGame) {
+                    window.resetGame(true); // Return to home screen
                 }
                 break;
             case 'F11':
