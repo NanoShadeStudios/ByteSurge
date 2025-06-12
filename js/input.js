@@ -259,34 +259,74 @@ function handleTurn() {
 }
 
 function handleHarvesterDrop() {
-    // Try to deploy a harvester
-    if (window.deployHarvester) {
-        const success = window.deployHarvester();
-        if (!success) {
-            // Already handled in deployHarvester function with visual feedback
-            return false;
+    if (!window.drone || !window.gameState) return;
+    
+    // Check if we haven't reached the harvester limit
+    if (window.harvesterSystem.harvesters.length >= window.gameState.maxHarvesters) {
+        // Visual feedback for hitting the limit
+        if (window.createScreenFlash) {
+            window.createScreenFlash('#ff0000', 0.2, 200);
         }
-        return true;
-    }
-    
-    // Fallback if deployHarvester not available
-    if (window.gameState && window.gameState.harvesters >= window.gameState.maxHarvesters) {
-        createScreenFlash('#ff0000', 0.2, 150);
-        if (navigator.vibrate) {
-            navigator.vibrate([100, 50, 100]);
+        // Add warning particle effect
+        if (window.particleSystem) {
+            const warningParticles = 6;
+            for (let i = 0; i < warningParticles; i++) {
+                const angle = (i / warningParticles) * Math.PI * 2;
+                window.particleSystem.addParticle({
+                    x: window.drone.x,
+                    y: window.drone.y,
+                    velocity: {
+                        x: Math.cos(angle) * 50,
+                        y: Math.sin(angle) * 50
+                    },
+                    life: 500,
+                    color: '#ff4444',
+                    size: 2
+                });
+            }
         }
-        return false;
+        return;
     }
     
-    // Visual feedback - green flash for fallback
-    createScreenFlash('#00ff00', 0.15, 120);
+    // Create new harvester at drone's position
+    const harvester = new Harvester(window.drone.x, window.drone.y);
     
-    // Haptic feedback
-    if (navigator.vibrate) {
-        navigator.vibrate([75, 25, 75]);
+    // Apply any active upgrades
+    window.harvesterSystem.applyUpgradesToHarvester(harvester);
+    
+    // Add to harvester system
+    window.harvesterSystem.harvesters.push(harvester);
+    
+    // Update game state
+    window.gameState.harvesters = window.harvesterSystem.harvesters.length;
+    
+    // Visual and audio feedback
+    if (window.createScreenFlash) {
+        window.createScreenFlash('#00ff00', 0.3, 300);
     }
     
-    return true;
+    if (window.particleSystem) {
+        const deployParticles = 12;
+        for (let i = 0; i < deployParticles; i++) {
+            const angle = (i / deployParticles) * Math.PI * 2;
+            window.particleSystem.addParticle({
+                x: window.drone.x,
+                y: window.drone.y,
+                velocity: {
+                    x: Math.cos(angle) * 80,
+                    y: Math.sin(angle) * 80
+                },
+                life: 800,
+                color: '#00ff00',
+                size: 3
+            });
+        }
+    }
+    
+    // Add screen shake for deployment feedback
+    if (window.addScreenShake) {
+        window.addScreenShake(5, 100);
+    }
 }
 
 // ===== INPUT UTILITIES =====

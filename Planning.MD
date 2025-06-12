@@ -99,48 +99,43 @@ Save system	LocalStorage (Phase 2)
 
 ✅ Add turning input
 
-✅ Auto-move forward
+✅ Add constant forward movement
 
-✅ Animate trail
+✅ Add collision detection with edges
 
-✴️ Objects
-✅ Spawn energy nodes randomly
+🔹 B. Energy Nodes
+✅ Randomly spawn ahead of player
 
-✅ Check collision: drone + energy
+✅ Collect on collision
 
-✅ Add to score + remove node
+✅ Adds to player's energy counter
 
-⚠️ Hazards
-✅ Add corruption blobs
+🔹 C. Corruption Zones
+✅ Move slowly from the right side of the screen
 
-✅ Move them toward drone slowly
+✅ If touched, resets run and logs distance
 
-✅ Reset run if touched
+🔹 D. Drop Harvester
+✅ Press H to drop a harvester behind
 
-🪄 Harvesters
-✅ Deploy on H press
+✅ Stays in place and flashes green
 
-✅ Stay fixed
+✅ Collects 1 energy every 2 seconds
 
-✅ Start generating energy passively
+✅ Limit: 3 harvesters max in Phase 1
 
-🎯 UI
-✅ Add pixel font
+🔹 E. UI + Stats
+✅ Top-left HUD with essential information
 
-✅ Show score, distance, harvesters
+✅ Distance traveled
 
-✅ Flash energy counter on collect
+✅ Energy collected
 
-✅ Phase 1 End Goal
-A working, playable version where:
+✅ Harvesters deployed
 
-You can move and collect energy
+✅ Simple pixel-style white text
 
-There’s risk from corruption
-
-Harvesters give idle-style boost
-
-Visuals are clean, simple, and satisfying
+✨ Phase 1 Complete! ✨
 
 Phase 2 Planning Doc – ByteSurge: Infinite Loop
 ✅ GOAL:

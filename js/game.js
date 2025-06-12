@@ -455,9 +455,6 @@ function gameLoop(currentTime) {
     // === FRAME COMPLETE ===
     performanceMetrics.frameTime = performance.now() - frameStartTime;
     
-    // Update UI with current stats
-    updateUI();
-    
     // Continue game loop
     requestAnimationFrame(gameLoop);
 }
@@ -612,176 +609,205 @@ function renderGame() {
 }
 
 function updateUI() {
-    // Only update UI elements if they exist
-    const distanceEl = document.getElementById('distanceValue');
-    if (distanceEl) {
-        const currentDistance = Math.floor(gameState.distance);
-        if (parseInt(distanceEl.textContent) !== currentDistance) {
-            distanceEl.textContent = currentDistance + 'm';
-            distanceEl.style.transform = 'scale(1.1)';
-            setTimeout(() => distanceEl.style.transform = 'scale(1)', 100);
-        }
-    }    // Animate energy counter with enhanced flash effects
-    const energyEl = document.getElementById('energyValue');
-    if (energyEl) {
-        if (parseInt(energyEl.textContent) !== gameState.energy) {
-            const energyDiff = gameState.energy - parseInt(energyEl.textContent);
-            energyEl.textContent = gameState.energy;
-            
-            // Enhanced flash for energy collection
-            if (energyDiff > 0) {
-                energyEl.classList.add('flash');
-                energyEl.style.color = '#00ff00';
-                energyEl.style.transform = 'scale(1.3)';
-                energyEl.style.textShadow = '0 0 12px rgba(0, 255, 0, 1)';
-                
-                setTimeout(() => {
-                    energyEl.classList.remove('flash');
-                    energyEl.style.color = '#00ffff';
-                    energyEl.style.transform = 'scale(1)';
-                    energyEl.style.textShadow = '0 0 4px rgba(0, 255, 255, 0.6)';
-                }, 300);
-            } else {
-                // Normal update without flash
-                energyEl.style.color = '#00ffff';
-                energyEl.style.transform = 'scale(1)';
-            }
-        }
-    }
-      // Update score with enhanced animation
-    const scoreEl = document.getElementById('scoreValue');
-    if (scoreEl) {
-        if (parseInt(scoreEl.textContent) !== gameState.score) {
-            scoreEl.textContent = gameState.score;
-            scoreEl.style.color = '#ffff00';
-            scoreEl.style.transform = 'scale(1.2)';
-            scoreEl.style.textShadow = '0 0 8px rgba(255, 255, 0, 0.8)';
-            setTimeout(() => {
-                scoreEl.style.color = '#00ffff';
-                scoreEl.style.transform = 'scale(1)';
-                scoreEl.style.textShadow = '0 0 4px rgba(0, 255, 255, 0.6)';
-            }, 200);
-        }
-    }
-    
-    // Update harvesters
-    const harvestersEl = document.getElementById('harvestersValue');
-    if (harvestersEl) {
-        harvestersEl.textContent = `${gameState.harvesters}/${gameState.maxHarvesters}`;
-    }
-    
-    // Update zone level with color coding
-    const zoneLevelEl = document.getElementById('zoneLevelValue');
-    if (zoneLevelEl) {
-        zoneLevelEl.textContent = gameState.zoneLevel;
-        
-        // Color code zone levels
-        if (gameState.zoneLevel <= 3) {
-            zoneLevelEl.style.color = '#00ffff';
-        } else if (gameState.zoneLevel <= 7) {
-            zoneLevelEl.style.color = '#ffff00';
-        } else {
-            zoneLevelEl.style.color = '#ff4444';
-        }
-    }
+    // All game stats are now rendered directly in canvas
+    // See renderUI() for the canvas-based UI implementation
 }
 
 function renderUI() {
-    // Render zone transition overlay
-    zoneSystem.renderZoneTransition(ctx);
+    if (!gameRunning || !gameState) return;
+
+    ctx.save();
     
-    // Render pause indicator
-    if (gamePaused && !window.isUpgradeMenuOpen()) {
-        ctx.save();
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(0, 0, window.GAME_WIDTH, window.GAME_HEIGHT);
-          ctx.fillStyle = '#00ffff';
-        ctx.font = 'bold 24px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('PAUSED', window.GAME_WIDTH / 2, window.GAME_HEIGHT / 2);
-        
-        ctx.font = '12px monospace';
-        ctx.fillStyle = '#888';
-        ctx.fillText('Press P to Resume', window.GAME_WIDTH / 2, window.GAME_HEIGHT / 2 + 40);
-        
-        ctx.restore();    }
-      // Render upgrade menu (render LAST so it's on top)
-    if (window.upgradeMenuUI) {
-       
-        window.upgradeMenuUI.render(ctx);
+    // Background for stats
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.beginPath();
+    ctx.roundRect(10, 10, 200, 100, 5);
+    ctx.fill();
+    
+    // Set up text style
+    ctx.font = '12px "Press Start 2P", monospace';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    
+    // Stats positioning
+    let y = 20;
+    const lineHeight = 20;
+    
+    // Distance with fancy formatting
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(`DIST: ${Math.floor(gameState.distance).toString().padStart(6, '0')}m`, 20, y);
+    y += lineHeight;
+    
+    // Energy with glowing effect
+    const energyGlow = Math.sin(performance.now() * 0.003) * 0.3 + 0.7;
+    ctx.fillStyle = `rgba(255, 255, 0, ${energyGlow})`;
+    ctx.fillText(`ENGY: ${Math.floor(gameState.energy).toString().padStart(4, '0')}`, 20, y);
+    y += lineHeight;
+    
+    // Harvesters with color coding
+    const harvesterColor = gameState.harvesters >= gameState.maxHarvesters ? '#ff4444' : '#44ff44';
+    ctx.fillStyle = harvesterColor;
+    ctx.fillText(`HVST: ${gameState.harvesters}/${gameState.maxHarvesters}`, 20, y);
+    y += lineHeight;
+    
+    // Zone level with dynamic color
+    const zoneColors = [
+        '#ffffff', // Zone 1
+        '#00ffff', // Zone 2
+        '#ff4444', // Zone 3
+        '#44ff44', // Zone 4
+        '#ffaa00', // Zone 5
+        '#aa44ff', // Zone 6
+        '#ff44aa', // Zone 7
+        '#ffffff'  // Zone 8+
+    ];
+    const zoneColor = zoneColors[Math.min(gameState.zoneLevel - 1, zoneColors.length - 1)];
+    ctx.fillStyle = zoneColor;
+    ctx.fillText(`ZONE: ${gameState.zoneLevel}`, 20, y);
+    
+    // High score display
+    const highScore = localStorage.getItem('highScore');
+    if (highScore) {
+        ctx.font = '10px "Press Start 2P", monospace';
+        ctx.fillStyle = '#888888';
+        ctx.fillText(`BEST: ${highScore}m`, 20, y + lineHeight);
     }
     
-    // Render settings menu (render LAST so it's on top)
-    if (window.settingsMenuUI) {
-        window.settingsMenuUI.render(ctx);
+    ctx.restore();
+
+    // Render zone transition overlay
+    if (window.zoneSystem) {
+        window.zoneSystem.renderZoneTransition(ctx);
+    }
+    
+    // Render pause menu if needed
+    if (gamePaused && !window.isUpgradeMenuOpen()) {
+        renderPauseMenu();
+    }
+    
+    // Render control hints
+    if (!gamePaused) {
+        renderControlHints();
     }
     
     // Render input indicators
     renderInputIndicators();
 }
 
-function renderInputIndicators() {
-    const now = performance.now();
-    const fadeTime = 300;
-    
-    // Show recent inputs as visual indicators
+function renderControlHints() {
     ctx.save();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'bottom';
     
-    if (window.inputState && window.inputState.inputBuffer) {
-        window.inputState.inputBuffer.forEach((input, index) => {
-            const age = now - input.timestamp;
-            if (age < fadeTime) {
-                const alpha = 1 - (age / fadeTime);
-                ctx.globalAlpha = alpha;
-                
-                let color = '#00ffff';
-                let text = '';
-                
-                if (input.type === 'keydown') {
-                    switch (input.code) {
-                        case 'Space':
-                            color = '#00ffff';
-                            text = 'TURN';
-                            break;
-                        case 'KeyH':
-                            color = '#00ff00';
-                            text = 'HARVEST';
-                            break;
-                    }
-                }
-                  if (text) {
-                    ctx.fillStyle = color;
-                    ctx.font = 'bold 12px monospace';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(text, window.GAME_WIDTH - 100, 50 + index * 20);
-                }
-            }
-        });
-    }
+    // Position in bottom-right corner
+    let y = window.GAME_HEIGHT - 10;
+    const lineHeight = 15;
+    
+    // Control hints with icons
+    ctx.fillText('SPACE/CLICK → Turn', window.GAME_WIDTH - 10, y);
+    y -= lineHeight;
+    ctx.fillText('H → Drop Harvester', window.GAME_WIDTH - 10, y);
+    y -= lineHeight;
+    ctx.fillText('P → Pause', window.GAME_WIDTH - 10, y);
+    y -= lineHeight;
+    ctx.fillText('ESC → Settings', window.GAME_WIDTH - 10, y);
     
     ctx.restore();
 }
 
-function renderDebugInfo() {
+function renderPauseMenu() {
     ctx.save();
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(10, window.GAME_HEIGHT - 120, 300, 110);
-      ctx.fillStyle = '#00ff00';
-    ctx.font = '10px monospace';
-    ctx.textAlign = 'left';
+    ctx.fillRect(0, 0, window.GAME_WIDTH, window.GAME_HEIGHT);
     
-    let y = window.GAME_HEIGHT - 115;
-    const lineHeight = 12;
-      ctx.fillText(`FPS: ${fps}`, 15, y); y += lineHeight;
-    ctx.fillText(`Frame: ${performanceMetrics.frameTime.toFixed(2)}ms`, 15, y); y += lineHeight;
-    ctx.fillText(`Update: ${performanceMetrics.updateTime.toFixed(2)}ms`, 15, y); y += lineHeight;
-    ctx.fillText(`Render: ${performanceMetrics.renderTime.toFixed(2)}ms`, 15, y); y += lineHeight;
-    ctx.fillText(`Avg Frame: ${performanceMetrics.avgFrameTime.toFixed(2)}ms`, 15, y); y += lineHeight;
-    ctx.fillText(`Input Buffer: ${window.inputState ? window.inputState.inputBuffer.length : 0}`, 15, y); y += lineHeight;    ctx.fillText(`Keys Active: ${window.inputState ? window.inputState.keys.size : 0}`, 15, y); y += lineHeight;    ctx.fillText(`Energy Nodes: ${window.energyNodes ? window.energyNodes.length : 0}`, 15, y); y += lineHeight;
-    ctx.fillText(`Corruption Zones: ${window.corruptionZones ? window.corruptionZones.length : 0}`, 15, y); y += lineHeight;
-    ctx.fillText(`Harvesters: ${window.harvesters ? window.harvesters.length : 0}/3`, 15, y); y += lineHeight;
-    ctx.fillText(`Energy: ${gameState.energy} Score: ${gameState.score}`, 15, y);
+    ctx.fillStyle = '#00ffff';
+    ctx.font = 'bold 24px monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('PAUSED', window.GAME_WIDTH / 2, window.GAME_HEIGHT / 2);
+    
+    ctx.font = '12px monospace';
+    ctx.fillStyle = '#888';
+    ctx.fillText('Press P to Resume', window.GAME_WIDTH / 2, window.GAME_HEIGHT / 2 + 40);
+    
+    ctx.restore();
+}
+
+function renderInputIndicators() {
+    if (!window.inputState || !window.inputState.inputBuffer) return;
+
+    const now = performance.now();
+    const fadeTime = 300; // How long indicators stay visible
+    
+    ctx.save();
+    
+    // Show recent inputs as visual indicators
+    window.inputState.inputBuffer.forEach((input, index) => {
+        const age = now - input.timestamp;
+        if (age < fadeTime) {
+            const alpha = 1 - (age / fadeTime);
+            let color = '#00ffff';
+            let text = '';
+            let x = 20;
+            let y = window.GAME_HEIGHT - 30;
+            
+            // Configure appearance based on input type
+            if (input.type === 'keydown') {
+                switch (input.code) {
+                    case 'Space':
+                        color = '#00ffff';
+                        text = '↺ TURN';
+                        break;
+                    case 'KeyH':
+                        color = '#00ff00';
+                        text = '⬡ HARVEST';
+                        break;
+                    case 'KeyP':
+                        color = '#ffff00';
+                        text = '❚❚ PAUSE';
+                        break;
+                    case 'KeyU':
+                        color = '#ff00ff';
+                        text = '⬆ UPGRADE';
+                        break;
+                    case 'Escape':
+                        color = '#888888';
+                        text = '⚙ SETTINGS';
+                        break;
+                }
+            } else if (input.type === 'click') {
+                color = '#00ffff';
+                text = '↺ TURN';
+            }
+            
+            if (text) {
+                // Draw indicator with fade effect
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = color;
+                ctx.font = 'bold 12px monospace';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                
+                // Position indicators in a row
+                const indicatorSpacing = 100;
+                x += index * indicatorSpacing;
+                
+                // Draw background pill
+                const padding = 8;
+                const textWidth = ctx.measureText(text).width;
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.beginPath();
+                ctx.roundRect(x - padding, y - 10, textWidth + padding * 2, 20, 10);
+                ctx.fill();
+                
+                // Draw text
+                ctx.fillStyle = color;
+                ctx.fillText(text, x, y);
+            }
+        }
+    });
     
     ctx.restore();
 }

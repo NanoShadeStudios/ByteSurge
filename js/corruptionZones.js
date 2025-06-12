@@ -200,6 +200,73 @@ class CorruptionZone {
         // Remove if too far off screen (left side)
         return this.x < -100;
     }
+    
+    checkCollision(drone) {
+        if (!drone || drone.isInvulnerable) return false;
+        
+        const dx = this.x - drone.x;
+        const dy = this.y - drone.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Use larger collision radius for better gameplay feel
+        return distance < (this.currentSize + drone.size * 0.8);
+    }
+    
+    draw(ctx) {
+        // Draw particles first (behind the corruption zone)
+        this.particles.forEach(particle => {
+            ctx.save();
+            ctx.globalAlpha = particle.alpha * 0.4;
+            ctx.fillStyle = '#ff0000';
+            ctx.beginPath();
+            ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        });
+        
+        // Calculate visual effects
+        const flicker = 0.7 + Math.sin(this.flickerPhase) * 0.3;
+        const waveStrength = 3;
+        
+        // Draw wavy blob
+        ctx.save();
+        ctx.globalAlpha = 0.6 * flicker;
+        ctx.fillStyle = '#ff0000';
+        
+        ctx.beginPath();
+        for (let i = 0; i < 360; i += 10) {
+            const angle = (i * Math.PI) / 180;
+            const wave = Math.sin(angle * 8 + this.waveOffset) * waveStrength;
+            const radius = this.currentSize + wave;
+            
+            const x = this.x + Math.cos(angle) * radius;
+            const y = this.y + Math.sin(angle) * radius;
+            
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+        ctx.closePath();
+        ctx.fill();
+        
+        // Draw glow effect
+        const gradient = ctx.createRadialGradient(
+            this.x, this.y, 0,
+            this.x, this.y, this.currentSize * 2
+        );
+        gradient.addColorStop(0, 'rgba(255, 0, 0, 0.2)');
+        gradient.addColorStop(1, 'rgba(255, 0, 0, 0)');
+        
+        ctx.globalAlpha = 0.3 * flicker;
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.currentSize * 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+    }
 }
 
 // ===== CORRUPTION ZONE MANAGEMENT =====

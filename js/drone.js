@@ -93,17 +93,93 @@ class Drone {
     
     handleScreenWrap() {
         const margin = this.size;
+        const halfSize = this.size / 2;
         
-        if (this.x < -margin) {
-            this.x = window.GAME_WIDTH + margin;
-        } else if (this.x > window.GAME_WIDTH + margin) {
-            this.x = -margin;
+        // Check collision with edges and handle based on direction
+        if (this.x - halfSize <= 0 && (this.direction === 2)) {
+            // Hit left edge while moving left
+            this.onEdgeCollision('left');
+            this.x = halfSize; // Prevent passing through
+        } else if (this.x + halfSize >= window.GAME_WIDTH && (this.direction === 0)) {
+            // Hit right edge while moving right
+            this.onEdgeCollision('right');
+            this.x = window.GAME_WIDTH - halfSize; // Prevent passing through
         }
         
-        if (this.y < -margin) {
-            this.y = window.GAME_HEIGHT + margin;
-        } else if (this.y > window.GAME_HEIGHT + margin) {
-            this.y = -margin;
+        if (this.y - halfSize <= 0 && (this.direction === 3)) {
+            // Hit top edge while moving up
+            this.onEdgeCollision('top');
+            this.y = halfSize; // Prevent passing through
+        } else if (this.y + halfSize >= window.GAME_HEIGHT && (this.direction === 1)) {
+            // Hit bottom edge while moving down
+            this.onEdgeCollision('bottom');
+            this.y = window.GAME_HEIGHT - halfSize; // Prevent passing through
+        }
+    }
+    
+    onEdgeCollision(edge) {
+        // Visual feedback
+        this.createCollisionParticles(edge);
+        
+        // Gameplay impact
+        if (window.gameState) {
+            // Reduce energy as penalty
+            const penalty = 5;
+            window.gameState.energy = Math.max(0, window.gameState.energy - penalty);
+            
+            // Add some screen shake
+            if (window.addScreenShake) {
+                window.addScreenShake(5, 100); // Light shake effect
+            }
+        }
+        
+        // Make drone briefly invulnerable
+        this.isInvulnerable = true;
+        this.invulnerabilityTime = 500; // 0.5 seconds of invulnerability
+    }
+    
+    createCollisionParticles(edge) {
+        const particleCount = 8;
+        const particleSpeed = 2;
+        const particleLife = 500; // milliseconds
+        
+        for (let i = 0; i < particleCount; i++) {
+            let angle;
+            let position = { x: this.x, y: this.y };
+            
+            // Determine particle direction based on collision edge
+            switch(edge) {
+                case 'left':
+                    angle = -Math.PI / 2 + (Math.random() - 0.5);
+                    position.x = this.size;
+                    break;
+                case 'right':
+                    angle = Math.PI / 2 + (Math.random() - 0.5);
+                    position.x = window.GAME_WIDTH - this.size;
+                    break;
+                case 'top':
+                    angle = Math.PI + (Math.random() - 0.5);
+                    position.y = this.size;
+                    break;
+                case 'bottom':
+                    angle = 0 + (Math.random() - 0.5);
+                    position.y = window.GAME_HEIGHT - this.size;
+                    break;
+            }
+            
+            if (window.particleSystem) {
+                window.particleSystem.addParticle({
+                    x: position.x,
+                    y: position.y,
+                    velocity: {
+                        x: Math.cos(angle) * particleSpeed * (1 + Math.random()),
+                        y: Math.sin(angle) * particleSpeed * (1 + Math.random())
+                    },
+                    life: particleLife * (0.8 + Math.random() * 0.4),
+                    color: '#ff4444',
+                    size: 2 + Math.random() * 2
+                });
+            }
         }
     }
     
