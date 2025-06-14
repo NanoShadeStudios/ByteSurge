@@ -1,11 +1,61 @@
 // ByteSurge: Infinite Loop - Game Core
 // Main game engine, loop, and coordination
 
+// ===== SPRITE LOADING SYSTEM =====
+const sprites = {
+    drone: null,
+    harvester: null,
+    loaded: false,
+    toLoad: 2
+};
+
+function loadSprites() {
+    return new Promise((resolve) => {
+        let loadedCount = 0;
+        
+        function onImageLoad() {
+            loadedCount++;
+            if (loadedCount === sprites.toLoad) {
+                sprites.loaded = true;
+                console.log('✅ All sprites loaded successfully');
+                resolve();
+            }
+        }
+        
+        // Load drone sprite
+        sprites.drone = new Image();
+        sprites.drone.onload = onImageLoad;
+        sprites.drone.onerror = () => {
+            console.warn('❌ Failed to load drone sprite, falling back to primitives');
+            sprites.drone = null;
+            onImageLoad();
+        };
+        sprites.drone.src = 'assets/Drone.png';
+        
+        // Load harvester sprite
+        sprites.harvester = new Image();
+        sprites.harvester.onload = onImageLoad;
+        sprites.harvester.onerror = () => {
+            console.warn('❌ Failed to load harvester sprite, falling back to primitives');
+            sprites.harvester = null;
+            onImageLoad();
+        };
+        sprites.harvester.src = 'assets/Harvester.png';
+    });
+}
+
+// Make sprites globally accessible
+window.sprites = sprites;
+
 // ===== CORE GAME VARIABLES =====
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const loadingText = document.getElementById('loadingText') || null;
 const gameStats = document.getElementById('gameStats') || null;
+
+// Make canvas globally accessible
+window.canvas = canvas;
+window.ctx = ctx;
 
 // ===== OPENING ANIMATION =====
 let openingAnimation = null;
@@ -50,17 +100,24 @@ let gameState = {
 // ===== ZONE SYSTEM =====
 let zoneSystem = {
     zoneColors: [
-        { bg: '#1a1a1a', accent: '#333' },      // Zone 1: Dark Gray
-        { bg: '#1a1a2a', accent: '#4444aa' },   // Zone 2: Deep Blue
-        { bg: '#2a1a1a', accent: '#aa4444' },   // Zone 3: Deep Red
-        { bg: '#1a2a1a', accent: '#44aa44' },   // Zone 4: Deep Green
-        { bg: '#2a2a1a', accent: '#aaaa44' },   // Zone 5: Deep Yellow
-        { bg: '#2a1a2a', accent: '#aa44aa' },   // Zone 6: Deep Purple
-        { bg: '#1a2a2a', accent: '#44aaaa' },   // Zone 7: Deep Cyan
-        { bg: '#2a2a2a', accent: '#888888' }    // Zone 8+: Dark Gray
+        { bg: '#1a1a1a', accent: '#333', energy: '#ffff00' },      // Zone 1: Dark Gray - Yellow Energy
+        { bg: '#1a1a2a', accent: '#4444aa', energy: '#00ffff' },   // Zone 2: Deep Blue - Cyan Energy
+        { bg: '#2a1a1a', accent: '#aa4444', energy: '#ff4444' },   // Zone 3: Deep Red - Red Energy
+        { bg: '#1a2a1a', accent: '#44aa44', energy: '#44ff44' },   // Zone 4: Deep Green - Green Energy
+        { bg: '#2a2a1a', accent: '#aaaa44', energy: '#ffaa00' },   // Zone 5: Deep Yellow - Orange Energy
+        { bg: '#2a1a2a', accent: '#aa44aa', energy: '#ff00ff' },   // Zone 6: Deep Purple - Magenta Energy
+        { bg: '#1a2a2a', accent: '#44aaaa', energy: '#00ffaa' },   // Zone 7: Deep Cyan - Teal Energy
+        { bg: '#2a2a2a', accent: '#888888', energy: '#ffffff' }    // Zone 8+: Dark Gray - White Energy
     ],
     
-    energyMultipliers: [1, 1.2, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0], // Energy value multipliers per zone
+    // Energy value multipliers and bonus scaling per zone
+    energyMultipliers: [1, 1.2, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0],
+    zoneBonusBase: 10, // Base bonus energy for reaching a new zone
+    zoneBonusMultiplier: 1.5, // Each zone's bonus is multiplied by this
+    
+    // Background scroll effect
+    backgroundOffset: 0,
+    scrollSpeed: 0.5,
     
     getCurrentZoneData() {
         const zoneIndex = Math.min(gameState.currentZone - 1, this.zoneColors.length - 1);
@@ -79,8 +136,12 @@ let zoneSystem = {
             gameState.currentZone = newZone;
             gameState.zoneLevel = newZone;
             
-            // Zone bonus energy
-            const zoneBonus = newZone * 10;
+            // Calculate scaled zone bonus
+            const zoneBonus = Math.floor(
+                this.zoneBonusBase * Math.pow(this.zoneBonusMultiplier, newZone - 1)
+            );
+            
+            // Apply bonuses
             gameState.energy += zoneBonus;
             gameState.score += zoneBonus * 5;
             gameState.totalZonesBonuses += zoneBonus;
@@ -88,29 +149,69 @@ let zoneSystem = {
             // Visual feedback
             this.triggerZoneTransition(oldZone, newZone, zoneBonus);
             
-         
+            // Increase difficulty
+            if (window.corruptionSystem) {
+                window.corruptionSystem.increaseZoneDifficulty(newZone);
+            }
             
             return true;
         }
         
         return false;
     },
-      triggerZoneTransition(oldZone, newZone, bonus) {
-        // Screen flash for zone transition
+    
+    update(deltaTime) {
+        // Update background scroll
+        this.backgroundOffset += this.scrollSpeed * deltaTime;
+        if (this.backgroundOffset >= window.GAME_WIDTH) {
+            this.backgroundOffset = 0;
+        }
+    },
+    
+    renderBackground(ctx) {
+        const zoneData = this.getCurrentZoneData();
+        const { bg, accent } = zoneData.colors;
+        
+        // Main background
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, window.GAME_WIDTH, window.GAME_HEIGHT);
+        
+        // Scrolling accent lines
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = 0.2;
+        
+        const lineSpacing = 100;
+        for (let x = -lineSpacing + this.backgroundOffset; x < window.GAME_WIDTH; x += lineSpacing) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x + window.GAME_WIDTH * 0.1, window.GAME_HEIGHT);
+            ctx.stroke();
+        }
+        
+        ctx.globalAlpha = 1;
+    },
+    
+    triggerZoneTransition(oldZone, newZone, bonus) {
+        // Screen flash with zone color
         if (window.createScreenFlash) {
-            window.createScreenFlash('#ffffff', 0.4, 500);
+            const newZoneColor = this.zoneColors[Math.min(newZone - 1, this.zoneColors.length - 1)].energy;
+            window.createScreenFlash(newZoneColor, 0.4, 500);
         }
         
-        // Haptic feedback
+        // Haptic feedback pattern scales with zone level
         if (navigator.vibrate) {
-            navigator.vibrate([200, 100, 200, 100, 300]);
+            const pattern = Array(newZone * 2).fill(100);
+            navigator.vibrate(pattern);
         }
         
-        // Show zone transition message on canvas
+        // Store transition data for rendering
         this.showZoneTransition(oldZone, newZone, bonus);
         
-      
-        
+        // Play zone transition sound if available
+        if (window.audio && window.audio.playSound) {
+            window.audio.playSound('zoneTransition');
+        }
     },
     
     showZoneTransition(oldZone, newZone, bonus) {
@@ -316,13 +417,25 @@ function returnToHomeScreen() {
     
     // Show home screen
     showingHomeScreen = true;
-    
-    // Re-initialize home screen if needed
+      // Re-initialize home screen if needed
     if (!homeScreen && window.HomeScreen) {
         homeScreen = new window.HomeScreen(canvas, ctx);
     }
     
   
+}
+
+function handleGameOver() {
+    // Visual feedback for game over
+    if (window.createScreenFlash) {
+        window.createScreenFlash('#ff0000', 0.8, 300); // Red flash for death
+    }
+    
+    // Return to home screen immediately after brief delay for visual effect
+    setTimeout(() => {
+        // Return to home screen and reset the game (no pausing)
+        resetGame(true);
+    }, 300); // Shorter delay - just enough to see the flash effect
 }
 
 function toggleFullscreen() {
@@ -336,30 +449,30 @@ function toggleFullscreen() {
 }
 
 function startGame() {
-    // Show game UI elements
-    const gameContainer = document.querySelector('.game-container');
-    if (gameContainer) {
-        gameContainer.classList.remove('opening-animation');
-    }
-    
-    // Show game stats
-    if (gameStats) {
-        gameStats.style.display = 'block';
-    }
-    
-    // Reset game state
-    resetGame();
-    
-    // Apply saved upgrades
-    if (window.reinitializeUpgrades) {
-        window.reinitializeUpgrades();
-    }
-    
-    // Start the actual game
+    console.log('🎮 Starting game...');
     showingHomeScreen = false;
     gameRunning = true;
     
-   
+    // Initialize game systems
+    if (window.upgradeMenuUI && !window.upgradeMenuUI.initialized) {
+        window.upgradeMenuUI.init();
+    }
+    if (window.upgradeSystem) {
+        window.upgradeSystem.loadUpgrades();
+    }
+    
+    // Initialize energy node system
+    if (window.EnergyNodeSystem) {
+        window.energyNodes = window.EnergyNodeSystem.init();
+    }
+    
+    // Initialize drone at center of screen
+    if (window.Drone) {
+        const centerX = window.GAME_WIDTH / 2;
+        const centerY = window.GAME_HEIGHT / 2;
+        drone = new window.Drone(centerX, centerY);
+        window.drone = drone; // Make drone globally accessible
+    }
 }
 
 // ===== GAME LOOP =====
@@ -414,19 +527,21 @@ function gameLoop(currentTime) {
     // Update gamepad input
     if (window.updateGamepadInput) {
         window.updateGamepadInput();
-    }    // Update game logic (skip if paused or upgrade menu is open, but still render UI)
+    }    // Update game logic (skip if paused or menus are open, but still render UI)
     const isUpgradeMenuOpen = window.isUpgradeMenuOpen && window.isUpgradeMenuOpen();
     const isSettingsMenuOpen = window.isSettingsMenuOpen && window.isSettingsMenuOpen();
+    
+    // Always update menu animations
+    if (window.upgradeMenuUI && window.upgradeMenuUI.update) {
+        window.upgradeMenuUI.update(deltaTime);
+    }
+    if (window.settingsMenuUI && window.settingsMenuUI.update) {
+        window.settingsMenuUI.update(deltaTime);
+    }
+    
+    // Update game if not paused and no menus are open
     if (!gamePaused && !isUpgradeMenuOpen && !isSettingsMenuOpen) {
         updateGame(deltaTime);
-    } else {
-        // Still update menu animations when paused or menus are open
-        if (window.upgradeMenuUI) {
-            window.upgradeMenuUI.update(deltaTime);
-        }
-        if (window.settingsMenuUI) {
-            window.settingsMenuUI.update(deltaTime);
-        }
     }
     
     // Clean up old input buffer entries
@@ -521,65 +636,59 @@ function clearCanvas() {
 }
 
 function updateGame(deltaTime) {
-    if (!gameRunning) return;
-    
-    // Update upgrade menu animations
-    if (window.upgradeMenuUI) {
-        window.upgradeMenuUI.update(deltaTime);
+    // Update core game systems
+    if (window.energyNodes) {
+        window.energyNodes.update(deltaTime);
     }
     
-    // Update drone
-    if (drone) {
-        drone.update(deltaTime);
-          // Update distance based on drone movement
-        gameState.distance += (drone.speed || 120) * (deltaTime / 1000);
+    // Update drone and other systems
+    if (!gameRunning || gamePaused) return;
+    
+    // Update game state first
+    if (window.drone) {
+        // Handle drone updates
+        window.drone.update(deltaTime);
         
-        // Check for zone progression
-        zoneSystem.checkZoneProgression();
+        // Update distance based on drone movement
+        gameState.distance += (window.drone.speed || 120) * (deltaTime / 1000);
+    }
+    
+    // Update corruption system
+    if (window.corruptionSystem) {
+        window.corruptionSystem.update(deltaTime);
     }
       // Update energy nodes
     if (window.updateEnergyNodes) {
         window.updateEnergyNodes(deltaTime);
     }
-      // Update corruption zones
-    if (window.updateCorruptionZones) {
-        window.updateCorruptionZones(deltaTime);
+    
+    // Check for energy node collisions
+    if (window.checkEnergyCollisions && window.drone) {
+        const energyCollected = window.checkEnergyCollisions(window.drone);
+        if (energyCollected > 0 && gameState) {
+            gameState.energy += energyCollected;
+        }
     }
     
     // Update harvesters
-    if (window.updateHarvesters) {
-        window.updateHarvesters(deltaTime);
+    if (window.harvesterSystem) {
+        window.harvesterSystem.harvesters.forEach(harvester => harvester.update(deltaTime));
     }
-      // Check collisions and collect energy
-    if (window.checkEnergyCollisions && drone) {
-        const energyCollected = window.checkEnergyCollisions(drone);
-        if (energyCollected > 0) {
-            // Apply zone multiplier to collected energy
-            const zoneData = zoneSystem.getCurrentZoneData();
-            const multipliedEnergy = Math.floor(energyCollected * zoneData.energyMultiplier);
-            
-            gameState.energy += multipliedEnergy;
-            gameState.score += multipliedEnergy * 10; // 10 points per energy
-            
-            // Log zone-enhanced collection
-            if (zoneData.energyMultiplier > 1) {
-               
-            }
+    
+    // Check for zone progression
+    if (gameState && zoneSystem) {
+        zoneSystem.checkZoneProgression();
+    }
+    
+    // Check for collisions with corruption
+    if (window.corruptionSystem && window.drone && !window.drone.isInvulnerable) {
+        if (window.corruptionSystem.checkCollisions(window.drone)) {
+            handleGameOver();
         }
     }
     
-    // Check corruption collisions (this will reset the game)
-    if (window.checkCorruptionCollisions && drone) {
-        const hitCorruption = window.checkCorruptionCollisions(drone);
-        if (hitCorruption) {
-            // Reset the game run
-            resetGame();
-            return; // Exit update loop since game is reset
-        }
-    }
-    
-    // TODO: Update corruption zones
-    // TODO: Update harvesters
+    // Update UI elements
+    updateUI();
 }
 
 function renderGame() {
@@ -597,13 +706,11 @@ function renderGame() {
     if (window.renderCorruptionZones) {
         window.renderCorruptionZones(ctx);
     }
-    
-    // Render harvesters
+      // Render harvesters
     if (window.renderHarvesters) {
         window.renderHarvesters(ctx);
     }
     
-    // TODO: Render corruption zones
     // TODO: Render harvesters
     // TODO: Render particle effects
 }
@@ -679,10 +786,19 @@ function renderUI() {
     if (window.zoneSystem) {
         window.zoneSystem.renderZoneTransition(ctx);
     }
-    
-    // Render pause menu if needed
+      // Render pause menu if needed
     if (gamePaused && !window.isUpgradeMenuOpen()) {
         renderPauseMenu();
+    }
+    
+    // Render upgrade menu if open
+    if (window.upgradeMenuUI && window.isUpgradeMenuOpen && window.isUpgradeMenuOpen()) {
+        window.upgradeMenuUI.renderMenu(ctx);
+    }
+    
+    // Render settings menu if open
+    if (window.settingsMenuUI && window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
+        window.settingsMenuUI.renderMenu(ctx);
     }
     
     // Render control hints
@@ -844,7 +960,14 @@ async function initializeGame() {
     window.DEBUG_MODE = false; // Disabled for clean UI
     
     // Setup canvas with enhanced scaling
-    setupCanvas();    // Initialize opening animation (check settings first)
+    setupCanvas();
+    
+    // Load sprites
+    try {
+        await loadSprites();
+    } catch (error) {
+        console.warn('⚠️ Failed to load some sprites, continuing with fallback rendering');
+    }// Initialize opening animation (check settings first)
     if (window.OpeningAnimation && !window.shouldSkipOpeningAnimation()) {
         openingAnimation = new window.OpeningAnimation(canvas, ctx);
         // Hide game UI elements during opening animation
@@ -882,7 +1005,25 @@ async function initializeGame() {
     if (window.setupInputHandlers) {
         window.setupInputHandlers();
     }
-    
+
+    // Add mouse move handler for menu hover effects
+    canvas.addEventListener('mousemove', (e) => {
+        // Handle upgrade menu hover
+        if (window.upgradeMenuUI && window.isUpgradeMenuOpen && window.isUpgradeMenuOpen()) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (window.GAME_WIDTH / rect.width);
+            const y = (e.clientY - rect.top) * (window.GAME_HEIGHT / rect.height);
+            window.upgradeMenuUI.handleMouseMove(x, y);
+        }
+        // Handle settings menu hover
+        else if (window.settingsMenuUI && window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (window.GAME_WIDTH / rect.width);
+            const y = (e.clientY - rect.top) * (window.GAME_HEIGHT / rect.height);
+            window.settingsMenuUI.handleMouseMove(x, y);
+        }
+    });
+
     // Add skip animation input
     const skipAnimation = () => {
         if (showingOpeningAnimation && openingAnimation) {
@@ -899,14 +1040,13 @@ async function initializeGame() {
             const result = homeScreen.handleClick(x, y);
             if (result === 'start_game') {
                 startGame();
-            }        } else {
-            // Handle upgrade menu clicks during gameplay
+            }        } else {            // Handle upgrade menu clicks during gameplay
             if (window.upgradeMenuUI && window.isUpgradeMenuOpen && window.isUpgradeMenuOpen()) {
                 const rect = canvas.getBoundingClientRect();
                 const x = (e.clientX - rect.left) * (window.GAME_WIDTH / rect.width);
                 const y = (e.clientY - rect.top) * (window.GAME_HEIGHT / rect.height);
                 
-                window.upgradeMenuUI.handleMouseClick(x, y, 0); // Left click
+                window.upgradeMenuUI.handleMouseClick(x, y);
             }
             // Handle settings menu clicks during gameplay
             else if (window.settingsMenuUI && window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
@@ -1011,6 +1151,12 @@ async function initializeGame() {
     // Start the game loop (will show opening animation first)
     requestAnimationFrame(gameLoop);
 }
+
+// Make important game objects globally accessible
+window.GAME_WIDTH = canvas.width;
+window.GAME_HEIGHT = canvas.height;
+window.gameState = gameState;
+window.zoneSystem = zoneSystem;
 
 // ===== STARTUP =====
 window.addEventListener('load', initializeGame);

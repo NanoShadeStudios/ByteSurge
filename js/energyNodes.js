@@ -2,6 +2,94 @@
 // Energy collection mechanics and visual effects
 
 // ===== ENERGY NODE SYSTEM =====
+window.EnergyNodeSystem = {
+    nodes: [],
+    spawnTimer: 0,
+    spawnInterval: 1000, // Spawn a new node every second
+    maxNodes: 30, // Maximum nodes on screen
+    
+    init() {
+        this.nodes = [];
+        this.spawnTimer = 0;
+        console.log('⚡ Energy node system initialized');
+        return this;
+    },
+    
+    update(deltaTime) {
+        // Update spawn timer
+        this.spawnTimer += deltaTime;
+        if (this.spawnTimer >= this.spawnInterval && this.nodes.length < this.maxNodes) {
+            this.spawnNode();
+            this.spawnTimer = 0;
+        }
+        
+        // Update existing nodes
+        for (let i = this.nodes.length - 1; i >= 0; i--) {
+            const node = this.nodes[i];
+            node.update(deltaTime);
+            
+            // Check for collection by drone
+            if (!node.isCollected && window.drone) {
+                const dx = node.x - window.drone.x;
+                const dy = node.y - window.drone.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < window.drone.size + node.size) {
+                    this.collectNode(node);
+                }
+            }
+            
+            // Remove fully collected nodes
+            if (node.isCollected && node.collectionTime > 300) {
+                this.nodes.splice(i, 1);
+            }
+        }
+    },
+    
+    render(ctx) {
+        this.nodes.forEach(node => node.render(ctx));
+    },
+    
+    spawnNode() {
+        // Random position within game bounds, keeping away from edges
+        const margin = 50;
+        const x = margin + Math.random() * (window.GAME_WIDTH - margin * 2);
+        const y = margin + Math.random() * (window.GAME_HEIGHT - margin * 2);
+        
+        // Create node with current zone level
+        const node = new EnergyNode(x, y, window.gameState ? window.gameState.currentZone : 1);
+        this.nodes.push(node);
+    },
+    
+    collectNode(node) {
+        if (node.isCollected) return;
+        
+        node.isCollected = true;
+        node.collectionTime = 0;
+        
+        // Calculate energy value based on zone multiplier
+        let energyValue = node.value;
+        if (window.zoneSystem && window.gameState) {
+            const zoneData = window.zoneSystem.getCurrentZoneData();
+            energyValue *= zoneData.energyMultiplier;
+        }
+        
+        // Apply any active bonuses
+        if (window.gameState) {
+            window.gameState.energy += energyValue;
+        }
+        
+        // Create screen flash effect
+        if (window.createScreenFlash) {
+            window.createScreenFlash(node.color, 0.2, 100);
+        }
+        
+        // Play collection sound (if we add sound later)
+        // playSound('collect');
+    }
+};
+
+// ===== ENERGY NODE CLASS =====
 class EnergyNode {
     constructor(x, y, zoneLevel = 1) {
         this.x = x;
@@ -302,44 +390,25 @@ function checkEnergyCollisions(drone) {
     for (let i = energyNodes.length - 1; i >= 0; i--) {
         const node = energyNodes[i];
         
-        if (node.isCollected) continue;
-        
-        // Simple circle-circle collision detection
-        const dx = drone.x - node.x;
-        const dy = drone.y - node.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        const collisionDistance = (drone.size || 8) / 2 + node.size / 2 + 2; // Add 2px margin
-        
-        if (distance < collisionDistance) {
-            // Collision detected!
-            const energyValue = node.collect();
-            if (energyValue > 0) {
-                totalEnergyCollected += energyValue;
+        if (!node.isCollected) {
+            const dx = node.x - drone.x;
+            const dy = node.y - drone.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+              if (distance < node.size + drone.size) {
+                totalEnergyCollected += node.value;
+                node.isCollected = true;
                 
-                // Create visual effects
+                // Create visual feedback for collection
                 if (window.createScreenFlash) {
-                    window.createScreenFlash('#00ff00', 0.1, 100);
+                    window.createScreenFlash(node.color || '#00ff00', 0.15, 100);
                 }
-                
-                // Haptic feedback
-                if (navigator.vibrate) {
-                    navigator.vibrate(30);
-                }
-                
-                console.log(`⚡ Energy collected! Total: +${totalEnergyCollected}`);
             }
         }
     }
-    
-    // Remove nodes that are ready for removal
-    energyNodes = energyNodes.filter(node => !node.isReadyForRemoval());
-    
-    return totalEnergyCollected;
+      return totalEnergyCollected;
 }
 
-// Export for global access
-window.EnergyNode = EnergyNode;
-window.energyNodes = energyNodes;
+// Expose functions to global scope
 window.updateEnergyNodes = updateEnergyNodes;
 window.renderEnergyNodes = renderEnergyNodes;
 window.resetEnergyNodes = resetEnergyNodes;

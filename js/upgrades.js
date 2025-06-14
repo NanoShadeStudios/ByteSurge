@@ -1,8 +1,13 @@
 // ByteSurge: Infinite Loop - Upgrade System
 // Advanced upgrade menu with visual polish and smooth animations
 
+// Helper function to check if upgrade menu is open
+window.isUpgradeMenuOpen = function() {
+    return window.upgradeSystem && window.upgradeSystem.isMenuOpen;
+};
+
 // ===== UPGRADE SYSTEM DATA =====
-let upgradeSystem = {
+window.upgradeSystem = {
     isMenuOpen: false,
     selectedUpgrade: 0,
     maxUpgrades: 5,
@@ -237,11 +242,19 @@ let upgradeSystem = {
 };
 
 // ===== UPGRADE MENU UI =====
-let upgradeMenuUI = {
+window.upgradeMenuUI = {
     mousePos: { x: 0, y: 0 },
     hoveredUpgrade: -1,
     panelBounds: { x: 0, y: 0, width: 0, height: 0 },
     upgradeBounds: [],
+    initialized: false,
+    
+    init() {
+        if (this.initialized) return;
+        this.initialized = true;
+        this.calculateBounds();
+        console.log('🛠️ Upgrade menu UI initialized');
+    },
 
     // Open upgrade menu
     openMenu() {
@@ -264,7 +277,7 @@ let upgradeMenuUI = {
         this.hoveredUpgrade = -1;
         
         // Resume game if it was running
-        if (window.togglePause && window.getGameRunning && window.getGameRunning() && window.getGamePaused()) {
+        if (window.togglePause && window.getGameRunning && window.getGamePaused()) {
             window.togglePause();
         }
     },
@@ -302,202 +315,178 @@ let upgradeMenuUI = {
         this.mousePos = { x, y };
         this.hoveredUpgrade = -1;
         
-        // Check if mouse is over any upgrade item
-        for (let bounds of this.upgradeBounds) {
+        // Check for hover over upgrade items
+        for (const bounds of this.upgradeBounds) {
             if (x >= bounds.x && x <= bounds.x + bounds.width &&
                 y >= bounds.y && y <= bounds.y + bounds.height) {
                 this.hoveredUpgrade = bounds.index;
-                // Also update keyboard selection to match hover
-                upgradeSystem.selectedUpgrade = bounds.index;
                 break;
             }
         }
     },
+    
+    // Update menu state and animations
+    update(deltaTime) {
+        if (!upgradeSystem.isMenuOpen) {
+            // Update menu closing animation
+            upgradeSystem.animationState.menuScale = Math.max(0, 
+                upgradeSystem.animationState.menuScale - upgradeSystem.animationState.animationSpeed * (deltaTime / 16));
+            upgradeSystem.animationState.backgroundAlpha = Math.max(0, 
+                upgradeSystem.animationState.backgroundAlpha - upgradeSystem.animationState.animationSpeed * (deltaTime / 16));
+            return;
+        }
 
-    // Handle mouse click
-    handleMouseClick(x, y, button) {
-        if (!upgradeSystem.isMenuOpen || button !== 0) return false; // Only left click
+        // Update menu opening animation
+        upgradeSystem.animationState.menuScale = Math.min(upgradeSystem.animationState.targetScale, 
+            upgradeSystem.animationState.menuScale + upgradeSystem.animationState.animationSpeed * (deltaTime / 16));
+        upgradeSystem.animationState.backgroundAlpha = Math.min(upgradeSystem.animationState.targetAlpha, 
+            upgradeSystem.animationState.backgroundAlpha + upgradeSystem.animationState.animationSpeed * (deltaTime / 16));
         
-        // Check if click is inside panel
+        // Recalculate bounds for proper mouse interaction
+        this.calculateBounds();
+    },
+    
+    // Render upgrade menu
+    renderMenu(ctx) {
+        if (!upgradeSystem.isMenuOpen) return;
+          // Draw semi-transparent background overlay
+        ctx.fillStyle = `rgba(0, 0, 0, ${upgradeSystem.animationState.backgroundAlpha * 0.8})`;
+        ctx.fillRect(0, 0, window.GAME_WIDTH, window.GAME_HEIGHT);
+        
+        // Draw menu panel background
+        const panelX = this.panelBounds.x;
+        const panelY = this.panelBounds.y;
+        const panelWidth = this.panelBounds.width;
+        const panelHeight = this.panelBounds.height;
+        
+        // Panel background with gradient
+        const gradient = ctx.createLinearGradient(panelX, panelY, panelX, panelY + panelHeight);
+        gradient.addColorStop(0, '#1a1a2e');
+        gradient.addColorStop(1, '#0f0f1a');
+        
+        ctx.fillStyle = gradient;
+        ctx.strokeStyle = '#4a4a6a';
+        ctx.lineWidth = 2;
+        
+        // Draw rounded rectangle for panel
+        ctx.beginPath();
+        ctx.roundRect(panelX, panelY, panelWidth, panelHeight, 10);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Draw title
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 28px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('UPGRADES', panelX + panelWidth/2, panelY + 50);
+        
+        // Draw available energy
+        ctx.font = '20px Arial';
+        ctx.fillStyle = '#00ffaa';
+        ctx.fillText(`Available Energy: ${Math.floor(window.gameState.energy)}`, panelX + panelWidth/2, panelY + 80);
+        
+        // Draw upgrade items
+        upgradeSystem.upgrades.forEach((upgrade, index) => {
+            const bounds = this.upgradeBounds[index];
+            const isHovered = this.hoveredUpgrade === index;
+            const isSelected = upgradeSystem.selectedUpgrade === index;
+            
+            // Background for the upgrade item
+            ctx.fillStyle = isHovered || isSelected ? '#2a2a4a' : '#1a1a3a';
+            ctx.beginPath();
+            ctx.roundRect(bounds.x, bounds.y, bounds.width, bounds.height, 5);
+            ctx.fill();
+            
+            // Highlight border if selected
+            if (isSelected) {
+                ctx.strokeStyle = upgrade.color;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            }
+            
+            // Icon
+            ctx.font = '24px Arial';
+            ctx.fillStyle = upgrade.color;
+            ctx.textAlign = 'left';
+            ctx.fillText(upgrade.icon, bounds.x + 20, bounds.y + 35);
+            
+            // Name and level
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 18px Arial';
+            ctx.fillText(`${upgrade.name} - Level ${upgrade.currentLevel}/${upgrade.maxLevel}`, bounds.x + 60, bounds.y + 30);
+            
+            // Description
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#aaaaaa';
+            ctx.fillText(upgrade.description, bounds.x + 60, bounds.y + 50);
+            
+            // Cost or max level reached
+            if (upgrade.currentLevel < upgrade.maxLevel) {
+                const cost = upgradeSystem.getUpgradeCost(index);
+                const canAfford = upgradeSystem.canAffordUpgrade(index);
+                ctx.fillStyle = canAfford ? '#00ff00' : '#ff0000';
+                ctx.textAlign = 'right';
+                ctx.fillText(`Cost: ${cost} Energy`, bounds.x + bounds.width - 20, bounds.y + 35);
+            } else {
+                ctx.fillStyle = '#ffaa00';
+                ctx.textAlign = 'right';
+                ctx.fillText('MAX LEVEL', bounds.x + bounds.width - 20, bounds.y + 35);
+            }
+        });
+        
+        // Draw controls hint at the bottom
+        ctx.fillStyle = '#888888';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('↑↓: Select  |  ENTER: Purchase  |  ESC/U: Close', panelX + panelWidth/2, panelY + panelHeight - 20);
+    },
+    
+    // Mouse interaction handlers
+    handleMouseClick(x, y) {
+        if (!upgradeSystem.isMenuOpen) return false;
+        
+        // Check if click is inside upgrade items
+        for (const bounds of this.upgradeBounds) {
+            if (x >= bounds.x && x <= bounds.x + bounds.width &&
+                y >= bounds.y && y <= bounds.y + bounds.height) {
+                
+                // Select and try to purchase the upgrade
+                upgradeSystem.selectedUpgrade = bounds.index;
+                if (upgradeSystem.canAffordUpgrade(bounds.index)) {
+                    upgradeSystem.purchaseUpgrade(bounds.index);
+                }
+                return true;
+            }
+        }
+        
+        // Check if click is outside the panel (close menu)
         if (x < this.panelBounds.x || x > this.panelBounds.x + this.panelBounds.width ||
             y < this.panelBounds.y || y > this.panelBounds.y + this.panelBounds.height) {
-            // Click outside panel - close menu
             this.closeMenu();
             return true;
         }
         
-        // Check if click is on an upgrade item
-        for (let bounds of this.upgradeBounds) {
-            if (x >= bounds.x && x <= bounds.x + bounds.width &&
-                y >= bounds.y && y <= bounds.y + bounds.height) {
-                // Purchase the clicked upgrade
-                if (upgradeSystem.purchaseUpgrade(bounds.index)) {
-                    // Purchase successful - add visual feedback
-                    console.log(`Purchased upgrade: ${upgradeSystem.upgrades[bounds.index].name}`);
-                }
-                return true;
-            }
-        }
-        
-        return true; // Consumed the click
-    },
-    
-    // Handle input
-    handleInput(keyCode) {
-        if (!upgradeSystem.isMenuOpen) return false;
-        
-        switch (keyCode) {
-            case 'ArrowUp':
-            case 'KeyW':
-                upgradeSystem.selectedUpgrade = Math.max(0, upgradeSystem.selectedUpgrade - 1);
-                return true;
-                
-            case 'ArrowDown':
-            case 'KeyS':
-                upgradeSystem.selectedUpgrade = Math.min(upgradeSystem.maxUpgrades - 1, upgradeSystem.selectedUpgrade + 1);
-                return true;
-                
-            case 'Enter':
-            case 'Space':
-                if (upgradeSystem.purchaseUpgrade(upgradeSystem.selectedUpgrade)) {
-                    // Purchase successful
-                }
-                return true;
-                
-            case 'Escape':
-            case 'KeyU':
-                this.closeMenu();
-                return true;
-        }
-        
         return false;
     },
-      // Update animations
-    update(deltaTime) {
+    
+    handleMouseMove(x, y) {
         if (!upgradeSystem.isMenuOpen) return;
         
-        const speed = upgradeSystem.animationState.animationSpeed * (deltaTime / 16.67);
+        this.mousePos = { x, y };
+        this.hoveredUpgrade = -1;
         
-        // Animate menu scale
-        upgradeSystem.animationState.menuScale += 
-            (upgradeSystem.animationState.targetScale - upgradeSystem.animationState.menuScale) * speed;
-        
-        // Animate background alpha
-        upgradeSystem.animationState.backgroundAlpha += 
-            (upgradeSystem.animationState.targetAlpha - upgradeSystem.animationState.backgroundAlpha) * speed;
-        
-        // Recalculate bounds if needed (in case of window resize)
-        if (this.panelBounds.width === 0) {
-            this.calculateBounds();
+        // Check for hover over upgrade items
+        for (const bounds of this.upgradeBounds) {
+            if (x >= bounds.x && x <= bounds.x + bounds.width &&
+                y >= bounds.y && y <= bounds.y + bounds.height) {
+                this.hoveredUpgrade = bounds.index;
+                upgradeSystem.selectedUpgrade = bounds.index; // Update selection on hover
+                break;
+            }
         }
-    },// Render upgrade menu
-    render(ctx) {
-        if (!upgradeSystem.isMenuOpen) {
-            return;
-        }
-        
-        // Simple initial render without animations for debugging
-     
-        ctx.save();
-          // Background overlay (dark transparent)
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.fillRect(0, 0, window.GAME_WIDTH, window.GAME_HEIGHT);
-        
-        // Main menu panel (simplified)
-        const panelWidth = 600;
-        const panelHeight = 500;
-        const panelX = (window.GAME_WIDTH - panelWidth) / 2;
-        const panelY = (window.GAME_HEIGHT - panelHeight) / 2;
-        
-        // Panel background
-        ctx.fillStyle = 'rgba(10, 20, 30, 0.95)';
-        ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
-        
-        // Panel border
-        ctx.strokeStyle = '#00ffff';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(panelX, panelY, panelWidth, panelHeight);
-        
-        // Title
-        ctx.fillStyle = '#00ffff';
-        ctx.font = 'bold 24px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('UPGRADE TERMINAL', panelX + panelWidth / 2, panelY + 40);
-        
-        // Energy display
-        const energy = window.gameState ? window.gameState.energy : 0;
-        ctx.fillStyle = '#ffff00';
-        ctx.font = '16px monospace';
-        ctx.fillText(`Energy: ${energy}`, panelX + panelWidth / 2, panelY + 70);
-        
-        // Simple upgrade list
-        const startY = panelY + 100;
-        const itemHeight = 70;
-          upgradeSystem.upgrades.forEach((upgrade, index) => {
-            const y = startY + index * itemHeight;
-            const isSelected = index === upgradeSystem.selectedUpgrade;
-            const isHovered = index === this.hoveredUpgrade;
-            const canAfford = upgradeSystem.canAffordUpgrade(index);
-            const cost = upgradeSystem.getUpgradeCost(index);
-            const isMaxed = upgrade.currentLevel >= upgrade.maxLevel;
-            
-            // Hover highlight (stronger than selection)
-            if (isHovered) {
-                ctx.fillStyle = 'rgba(0, 255, 255, 0.3)';
-                ctx.fillRect(panelX + 10, y - 25, panelWidth - 20, itemHeight - 10);
-                // Hover border
-                ctx.strokeStyle = '#00ffff';
-                ctx.lineWidth = 2;
-                ctx.strokeRect(panelX + 10, y - 25, panelWidth - 20, itemHeight - 10);
-            }
-            // Selection highlight (for keyboard navigation)
-            else if (isSelected) {
-                ctx.fillStyle = 'rgba(0, 255, 255, 0.15)';
-                ctx.fillRect(panelX + 10, y - 25, panelWidth - 20, itemHeight - 10);
-                ctx.strokeStyle = '#00ffff';
-                ctx.lineWidth = 1;
-                ctx.strokeRect(panelX + 10, y - 25, panelWidth - 20, itemHeight - 10);
-            }
-            
-            // Name and level
-            ctx.fillStyle = isMaxed ? '#888888' : (isHovered ? '#ffffff' : '#cccccc');
-            ctx.font = isHovered ? 'bold 18px monospace' : 'bold 16px monospace';
-            ctx.textAlign = 'left';
-            ctx.fillText(`${upgrade.name} [${upgrade.currentLevel}/${upgrade.maxLevel}]`, panelX + 30, y - 10);
-            
-            // Description
-            ctx.fillStyle = isHovered ? '#ffffff' : '#cccccc';
-            ctx.font = isHovered ? '14px monospace' : '12px monospace';
-            ctx.fillText(upgrade.description, panelX + 30, y + 10);
-            
-            // Cost or status
-            ctx.textAlign = 'right';
-            if (isMaxed) {
-                ctx.fillStyle = '#00ff00';
-                ctx.font = 'bold 14px monospace';
-                ctx.fillText('MAXED', panelX + panelWidth - 30, y);
-            } else if (cost !== null) {
-                ctx.fillStyle = canAfford ? (isHovered ? '#ffff88' : '#ffff00') : '#ff4444';
-                ctx.font = isHovered ? 'bold 16px monospace' : 'bold 14px monospace';
-                ctx.fillText(`${cost} Energy`, panelX + panelWidth - 30, y);
-                
-                // Add purchase hint when hovering affordable upgrades
-                if (isHovered && canAfford) {
-                    ctx.fillStyle = '#88ff88';
-                    ctx.font = '10px monospace';
-                    ctx.fillText('Click to purchase', panelX + panelWidth - 30, y + 15);
-                }
-            }
-        });
-          // Controls hint
-        ctx.fillStyle = '#888888';
-        ctx.font = '12px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText('↑↓ Navigate  |  ENTER/CLICK Purchase  |  U/ESC Close', panelX + panelWidth / 2, panelY + panelHeight - 20);
-        
-        ctx.restore();
-        
-    }
+    },
+    
+    //...existing code...
 };
 
 // ===== GLOBAL FUNCTIONS =====

@@ -303,8 +303,7 @@ class Drone {
         this.isInvulnerable = true;
         this.invulnerabilityTime = duration;
     }
-    
-    render(ctx) {
+      render(ctx) {
         ctx.save();
         
         // Render trail first (behind drone)
@@ -317,37 +316,66 @@ class Drone {
         ctx.translate(this.x, this.y + this.bobOffset);
         ctx.rotate(this.rotationAngle);
         
-        // Outer glow effect
-        const glowIntensity = 0.3 + Math.sin(this.pulsePhase) * 0.1;
-        const glowSize = this.glowRadius + Math.sin(this.pulsePhase * 1.5) * 3;
-        
-        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowSize);
-        gradient.addColorStop(0, `rgba(0, 255, 255, ${glowIntensity})`);
-        gradient.addColorStop(0.7, `rgba(0, 128, 255, ${glowIntensity * 0.3})`);
-        gradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
-        
-        ctx.fillStyle = gradient;
-        ctx.fillRect(-glowSize, -glowSize, glowSize * 2, glowSize * 2);
-        
-        // Main drone body
-        ctx.fillStyle = this.isInvulnerable ? '#ffffff' : '#f0f0f0';
-        if (this.isInvulnerable) {
-            ctx.globalAlpha = 0.7 + Math.sin(performance.now() * 0.02) * 0.3;
+        // Check if sprite is available and loaded
+        if (window.sprites && window.sprites.drone && window.sprites.loaded) {
+            // Render sprite with glow effect
+            const glowIntensity = 0.3 + Math.sin(this.pulsePhase) * 0.1;
+            const glowSize = this.glowRadius + Math.sin(this.pulsePhase * 1.5) * 3;
+            
+            // Outer glow effect
+            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowSize);
+            gradient.addColorStop(0, `rgba(0, 255, 255, ${glowIntensity})`);
+            gradient.addColorStop(0.7, `rgba(0, 128, 255, ${glowIntensity * 0.3})`);
+            gradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(-glowSize, -glowSize, glowSize * 2, glowSize * 2);
+            
+            // Apply invulnerability effect
+            if (this.isInvulnerable) {
+                ctx.globalAlpha = 0.7 + Math.sin(performance.now() * 0.02) * 0.3;
+            }
+            
+            // Draw the sprite centered
+            const spriteSize = this.size * 2; // Scale sprite to be appropriate size
+            ctx.drawImage(window.sprites.drone, -spriteSize/2, -spriteSize/2, spriteSize, spriteSize);
+            
+            // Reset alpha
+            ctx.globalAlpha = 1.0;
+        } else {
+            // Fallback to original primitive rendering
+            // Outer glow effect
+            const glowIntensity = 0.3 + Math.sin(this.pulsePhase) * 0.1;
+            const glowSize = this.glowRadius + Math.sin(this.pulsePhase * 1.5) * 3;
+            
+            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowSize);
+            gradient.addColorStop(0, `rgba(0, 255, 255, ${glowIntensity})`);
+            gradient.addColorStop(0.7, `rgba(0, 128, 255, ${glowIntensity * 0.3})`);
+            gradient.addColorStop(1, 'rgba(0, 255, 255, 0)');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(-glowSize, -glowSize, glowSize * 2, glowSize * 2);
+            
+            // Main drone body
+            ctx.fillStyle = this.isInvulnerable ? '#ffffff' : '#f0f0f0';
+            if (this.isInvulnerable) {
+                ctx.globalAlpha = 0.7 + Math.sin(performance.now() * 0.02) * 0.3;
+            }
+            
+            ctx.beginPath();
+            ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Inner core
+            ctx.fillStyle = this.isBoostActive ? '#ffff00' : '#00ffff';
+            ctx.beginPath();
+            ctx.arc(0, 0, this.size / 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Direction indicator
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(this.size / 3, -1, this.size / 4, 2);
         }
-        
-        ctx.beginPath();
-        ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Inner core
-        ctx.fillStyle = this.isBoostActive ? '#ffff00' : '#00ffff';
-        ctx.beginPath();
-        ctx.arc(0, 0, this.size / 3, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Direction indicator
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(this.size / 3, -1, this.size / 4, 2);
         
         ctx.restore();
         

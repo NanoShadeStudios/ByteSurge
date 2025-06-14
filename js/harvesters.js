@@ -136,8 +136,7 @@ class Harvester {
             size: 2 + Math.random() * 3
         });
     }
-    
-    render(ctx) {
+      render(ctx) {
         ctx.save();
         
         // Move to harvester center
@@ -162,42 +161,49 @@ class Harvester {
         ctx.beginPath();
         ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
         ctx.fill();
-        
-        // Main harvester body (triangle)
-        ctx.beginPath();
-        const points = 3;
-        for (let i = 0; i < points; i++) {
-            const angle = (i / points) * Math.PI * 2 - Math.PI / 2; // Start pointing up
-            const x = Math.cos(angle) * this.size;
-            const y = Math.sin(angle) * this.size;
-            
-            if (i === 0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
+          // Check if sprite is available and loaded
+        if (window.sprites && window.sprites.harvester && window.sprites.loaded) {
+            // Draw the harvester sprite centered - 4x size (2x bigger than previous 2x)
+            const spriteSize = this.size * 4; // Scale sprite to be 2x bigger
+            ctx.drawImage(window.sprites.harvester, -spriteSize/2, -spriteSize/2, spriteSize, spriteSize);
+        } else {
+            // Fallback to original primitive rendering
+            // Main harvester body (triangle)
+            ctx.beginPath();
+            const points = 3;
+            for (let i = 0; i < points; i++) {
+                const angle = (i / points) * Math.PI * 2 - Math.PI / 2; // Start pointing up
+                const x = Math.cos(angle) * this.size;
+                const y = Math.sin(angle) * this.size;
+                
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
             }
+            ctx.closePath();
+            
+            // Fill with energy gradient
+            const bodyGradient = ctx.createLinearGradient(0, -this.size, 0, this.size);
+            bodyGradient.addColorStop(0, `rgba(100, 255, 100, ${0.9 + this.glowIntensity * 0.1})`);
+            bodyGradient.addColorStop(0.5, `rgba(50, 220, 50, ${0.8 + this.glowIntensity * 0.2})`);
+            bodyGradient.addColorStop(1, `rgba(20, 180, 20, ${0.7 + this.glowIntensity * 0.3})`);
+            
+            ctx.fillStyle = bodyGradient;
+            ctx.fill();
+            
+            // Add outline
+            ctx.strokeStyle = `rgba(0, 255, 0, ${0.8 + this.glowIntensity * 0.2})`;
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            // Add center energy core
+            ctx.beginPath();
+            ctx.arc(0, 0, 2, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(200, 255, 200, ${this.glowIntensity})`;
+            ctx.fill();
         }
-        ctx.closePath();
-        
-        // Fill with energy gradient
-        const bodyGradient = ctx.createLinearGradient(0, -this.size, 0, this.size);
-        bodyGradient.addColorStop(0, `rgba(100, 255, 100, ${0.9 + this.glowIntensity * 0.1})`);
-        bodyGradient.addColorStop(0.5, `rgba(50, 220, 50, ${0.8 + this.glowIntensity * 0.2})`);
-        bodyGradient.addColorStop(1, `rgba(20, 180, 20, ${0.7 + this.glowIntensity * 0.3})`);
-        
-        ctx.fillStyle = bodyGradient;
-        ctx.fill();
-        
-        // Add outline
-        ctx.strokeStyle = `rgba(0, 255, 0, ${0.8 + this.glowIntensity * 0.2})`;
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        
-        // Add center energy core
-        ctx.beginPath();
-        ctx.arc(0, 0, 2, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(200, 255, 200, ${this.glowIntensity})`;
-        ctx.fill();
         
         ctx.restore();
     }
@@ -248,7 +254,14 @@ class Harvester {
 let maxHarvesters = 3;
 
 function updateHarvesters(deltaTime) {
-    // Update all harvesters
+    // Update harvesters in the current system
+    if (window.harvesterSystem && window.harvesterSystem.harvesters) {
+        window.harvesterSystem.harvesters.forEach(harvester => {
+            harvester.update(deltaTime);
+        });
+    }
+    
+    // Also update any harvesters in the legacy array for backward compatibility
     harvesters.forEach(harvester => {
         harvester.update(deltaTime);
     });
@@ -326,21 +339,48 @@ function deployHarvester() {
 }
 
 function renderHarvesters(ctx) {
+    // Use the harvesterSystem.harvesters array (current system)
+    if (window.harvesterSystem && window.harvesterSystem.harvesters) {
+        window.harvesterSystem.harvesters.forEach(harvester => {
+            harvester.render(ctx);
+        });
+    }
+    
+    // Also render any harvesters in the legacy array for backward compatibility
     harvesters.forEach(harvester => {
         harvester.render(ctx);
     });
 }
 
 function getHarvesterStats() {
-    return harvesters.map(harvester => harvester.getStats());
+    // Get stats from the current system
+    const systemStats = window.harvesterSystem && window.harvesterSystem.harvesters ? 
+        window.harvesterSystem.harvesters.map(harvester => harvester.getStats()) : [];
+    
+    // Get stats from legacy array
+    const legacyStats = harvesters.map(harvester => harvester.getStats());
+    
+    // Combine both (avoid duplicates by using the main system)
+    return systemStats.length > 0 ? systemStats : legacyStats;
 }
 
 function getTotalHarvesterEnergy() {
-    return harvesters.reduce((total, harvester) => total + harvester.totalEnergyGenerated, 0);
+    // Get energy from the current system
+    const systemEnergy = window.harvesterSystem && window.harvesterSystem.harvesters ? 
+        window.harvesterSystem.harvesters.reduce((total, harvester) => total + harvester.totalEnergyGenerated, 0) : 0;
+    
+    // Get energy from legacy array
+    const legacyEnergy = harvesters.reduce((total, harvester) => total + harvester.totalEnergyGenerated, 0);
+    
+    // Return from main system if available, otherwise legacy
+    return systemEnergy > 0 ? systemEnergy : legacyEnergy;
 }
 
 function resetHarvesters() {
     harvesters = [];
+    if (window.harvesterSystem) {
+        window.harvesterSystem.harvesters = [];
+    }
     if (window.gameState) {
         window.gameState.harvesters = 0;
     }
@@ -352,7 +392,17 @@ function applyHarvesterUpgrades() {
     const harvesterRateLevel = window.upgradeSystem ? 
         window.upgradeSystem.upgrades.find(u => u.id === 'harvesterRate')?.currentLevel || 0 : 0;
     
-    // Apply upgrades to all existing harvesters
+    // Apply upgrades to harvesters in the current system
+    if (window.harvesterSystem && window.harvesterSystem.harvesters) {
+        window.harvesterSystem.harvesters.forEach(harvester => {
+            // Harvester rate upgrade: reduce generation interval
+            const rateMultiplier = 1 + (harvesterRateLevel * 0.2); // 20% faster per level
+            harvester.generationInterval = harvester.baseGenerationInterval / rateMultiplier;
+            harvester.energyGenerationRate = Math.floor(harvester.baseEnergyGenerationRate * (1 + harvesterRateLevel * 0.1)); // 10% more energy per level
+        });
+    }
+    
+    // Also apply upgrades to legacy array
     harvesters.forEach(harvester => {
         // Harvester rate upgrade: reduce generation interval
         const rateMultiplier = 1 + (harvesterRateLevel * 0.2); // 20% faster per level

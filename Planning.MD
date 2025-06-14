@@ -143,13 +143,13 @@ Add dynamic world progression, meaningful upgrades, smarter corruption, offline 
 
 1. New Gameplay Systems
 🔹 A. Zone Layers (World Depth)
-Every 1000 distance = 1 new "Zone"
+✅ Every 1000 distance = 1 new "Zone"
 
-Each Zone adds a visual background shift (slightly different color tone)
+✅ Each Zone adds a visual background shift (slightly different color tone)
 
-New Zone = new energy type with more value
+✅ New Zone = new energy type with more value
 
-You get a “Zone Bonus” every time you enter a new zone
+✅ You get a "Zone Bonus" every time you enter a new zone
 
 🔹 B. Upgrade System
 Spend collected energy on upgrades in a simple menu:

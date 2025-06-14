@@ -33,10 +33,55 @@ function setupInputHandlers() {
         if (inputState.inputBuffer.length > inputState.maxBufferSize) {
             inputState.inputBuffer.shift();
         }        // Handle upgrade menu input first (works even when game isn't running)
-        if (window.upgradeMenuUI) {
-            if (window.upgradeMenuUI.handleInput(e.code)) {
+        if (e.code === 'KeyU') {
+            console.log('🔑 U key pressed - checking upgrade system...');
+            console.log('upgradeSystem exists:', !!window.upgradeSystem);
+            console.log('upgradeMenuUI exists:', !!window.upgradeMenuUI);
+            if (window.upgradeSystem) {
+                console.log('upgradeSystem.isMenuOpen:', window.upgradeSystem.isMenuOpen);
+            }
+            
+            if (window.upgradeSystem && !window.upgradeSystem.isMenuOpen) {
+                console.log('Opening upgrade menu...');
+                window.upgradeMenuUI.openMenu();
+                if (window.togglePause && window.getGameRunning && window.getGameRunning()) {
+                    window.togglePause();
+                }
                 e.preventDefault();
                 return;
+            } else if (window.upgradeSystem && window.upgradeSystem.isMenuOpen) {
+                console.log('Closing upgrade menu...');
+                window.upgradeMenuUI.closeMenu();
+                e.preventDefault();
+                return;
+            }
+        }
+        
+        if (window.upgradeSystem && window.upgradeSystem.isMenuOpen) {
+            switch (e.code) {
+                case 'ArrowUp':
+                    window.upgradeSystem.selectedUpgrade = Math.max(0, window.upgradeSystem.selectedUpgrade - 1);
+                    e.preventDefault();
+                    return;
+                    
+                case 'ArrowDown':
+                    window.upgradeSystem.selectedUpgrade = Math.min(window.upgradeSystem.maxUpgrades - 1, window.upgradeSystem.selectedUpgrade + 1);
+                    e.preventDefault();
+                    return;
+                    
+                case 'Enter':
+                case 'Space':
+                    const selectedIndex = window.upgradeSystem.selectedUpgrade;
+                    if (window.upgradeSystem.canAffordUpgrade(selectedIndex)) {
+                        window.upgradeSystem.purchaseUpgrade(selectedIndex);
+                    }
+                    e.preventDefault();
+                    return;
+                    
+                case 'Escape':
+                    window.upgradeMenuUI.closeMenu();
+                    e.preventDefault();
+                    return;
             }
         }
         
@@ -45,23 +90,8 @@ function setupInputHandlers() {
             if (window.settingsMenuUI.handleInput(e.code)) {
                 e.preventDefault();
                 return;
-            }
-        }
-          // Handle upgrade menu toggle
-        if (e.code === 'KeyU') {
-            e.preventDefault();
-            console.log('🔑 U key pressed - toggling upgrade menu');
-            if (window.isUpgradeMenuOpen && window.isUpgradeMenuOpen()) {
-                console.log('Closing upgrade menu');
-                window.closeUpgradeMenu();
-            } else if (window.openUpgradeMenu) {
-                console.log('Opening upgrade menu');
-                window.openUpgradeMenu();
-            } else {
-                console.error('❌ openUpgradeMenu function not found!');
-            }
-            return;        }
-
+            }        }
+          
         // Handle settings menu toggle (works even when game isn't running)
         if (e.code === 'Escape') {
             e.preventDefault();
@@ -245,16 +275,10 @@ function setupInputHandlers() {
 function handleTurn() {
     // Try to turn the drone
     if (window.drone && window.drone.turn()) {
-        // Visual feedback - screen flash
-        createScreenFlash('#00ffff', 0.1, 100);
-        
         // Haptic feedback for mobile
         if (navigator.vibrate) {
             navigator.vibrate(50);
         }
-    } else {
-        // Turn failed (cooldown)
-        createScreenFlash('#ff8800', 0.05, 50);
     }
 }
 
@@ -287,8 +311,7 @@ function handleHarvesterDrop() {
         }
         return;
     }
-    
-    // Create new harvester at drone's position
+      // Create new harvester at drone's position
     const harvester = new Harvester(window.drone.x, window.drone.y);
     
     // Apply any active upgrades
@@ -296,6 +319,11 @@ function handleHarvesterDrop() {
     
     // Add to harvester system
     window.harvesterSystem.harvesters.push(harvester);
+    
+    // Also add to legacy harvesters array for backward compatibility
+    if (window.harvesters) {
+        window.harvesters.push(harvester);
+    }
     
     // Update game state
     window.gameState.harvesters = window.harvesterSystem.harvesters.length;
