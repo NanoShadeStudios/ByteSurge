@@ -268,17 +268,33 @@ window.upgradeMenuUI = {
         
         // Calculate panel and upgrade bounds
         this.calculateBounds();
-    },
-      // Close upgrade menu
+    },      // Close upgrade menu
     closeMenu() {
         if (!upgradeSystem.isMenuOpen) return;
         
         upgradeSystem.isMenuOpen = false;
         this.hoveredUpgrade = -1;
         
-        // Resume game if it was running
-        if (window.togglePause && window.getGameRunning && window.getGamePaused()) {
-            window.togglePause();
+        // Check if upgrade menu was opened from death screen
+        if (this.deathScreenActive) {
+            // Restore death screen visibility
+            if (this.deathScreenOverlay) {
+                this.deathScreenOverlay.style.display = 'flex';
+            }
+            
+            // Restore game state to what it was before opening upgrade menu
+            window.gameRunning = this.wasGameRunning || false;
+            window.gamePaused = true; // Keep paused since we're on death screen
+            
+            // Clear death screen flags
+            this.deathScreenActive = false;
+            this.wasGameRunning = false;
+            this.deathScreenOverlay = null;
+        } else {
+            // Normal close behavior - resume game if it was running
+            if (window.togglePause && window.getGameRunning && window.getGamePaused()) {
+                window.togglePause();
+            }
         }
     },
 

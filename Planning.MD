@@ -1,4 +1,4 @@
-Always do the first unclompted task from planning.MD whenever i say "n". whenever you finish a task, mark it as completed. go above and beyond on the tasks, think big. Remember to keep file sizes small and organized. and dont add console logs unless debugging. but once done debugging delete console logs
+Always do the first unclompted task from planning.MD whenever i say "n". whenever you finish a task, mark it as completed. go above and beyond on the tasks, think big. Remember to kee file sizes small and organized. and dont add onsole logs unless debugging. but once done debugging delete console logs
 
 
 
@@ -139,7 +139,7 @@ Save system	LocalStorage (Phase 2)
 
 Phase 2 Planning Doc – ByteSurge: Infinite Loop
 ✅ GOAL:
-Add dynamic world progression, meaningful upgrades, smarter corruption, offline earnings, and polish the core loop.
+Add dynamic world progression, meaningful upgrades, smarter corruption, and polish the core loop.
 
 1. New Gameplay Systems
 🔹 A. Zone Layers (World Depth)
@@ -174,18 +174,18 @@ Flashing warning when it's nearby
 
 New corruption types (like “jammers” that disable harvesters for 5 seconds)
 
-3. Offline/Idle Energy Collection
-When a harvester is placed:
 
-Store timestamp + position
 
-On game reload, calculate how much energy it would've collected
+
+
+
+
 
 Add to player’s total with a small bonus if they return soon
 
-Use localStorage for saving harvester data.
 
-4. Polish and Juice
+
+3. Polish and Juice
 Visual Polish:
 Element	Upgrade
 Energy Node	Add soft glow + twinkle animation
@@ -213,26 +213,26 @@ Glitch sound when corruption appears
 
 ✅ Code upgrade effects and level caps
 
- Store upgrade data between runs
+✅ Store upgrade data between runs
 
 👾 Smarter Corruption
- Add behavior that targets harvester zones
+✅ Add behavior that targets harvester zones
 
- Add faster corruption with warning
+✅ Add faster corruption with warning
 
- Add new corruption blob types (e.g., jammer)
+✅ Add new corruption blob types (e.g., jammer)
 
-💾 Offline Progress
- Store harvester timestamp + position
 
- On game start, calculate energy gained
+
+
+
 
  Display message like: “Your harvesters brought back 120 energy!”
 
 ✨ Visual Juice
- Drone trail smoothing
+ ✅ Drone trail smoothing
 
- Zone transition effects
+ ✅ Zone transition effects
 
  Floating text when you collect energy
 

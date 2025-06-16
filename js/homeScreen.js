@@ -9,11 +9,13 @@ class HomeScreen {
         this.mouseX = 0;
         this.mouseY = 0;        this.menuItems = [
             { text: 'START GAME', action: 'start', glow: 0 },
-            { text: 'SETTINGS', action: 'settings', glow: 0 },
-            { text: 'CONTROLS', action: 'controls', glow: 0 },
+            { text: 'LEADERBOARD', action: 'leaderboard', glow: 0 },
+            { text: 'OPTIONS', action: 'options', glow: 0 },
+            { text: 'CREDITS', action: 'credits', glow: 0 },
             { text: 'ABOUT', action: 'about', glow: 0 }
-        ];
-        this.showingSubMenu = null;
+        ];        this.showingSubMenu = null;
+        this.hoveredOptionIndex = -1;
+        this.optionBounds = [];
         this.pulseOffset = 0;
         this.particleOffset = 0;
         
@@ -175,16 +177,9 @@ class HomeScreen {
             this.ctx.shadowColor = isHovered ? '#ffffff' : '#00ff88';
             this.ctx.shadowBlur = textGlowIntensity;
             this.ctx.fillStyle = isHovered ? '#ffffff' : '#00ff88';
-            this.ctx.fillText(item.text, textX, textY);
-        });// Clear any shadow effects before rendering bottom text
+            this.ctx.fillText(item.text, textX, textY);        });// Clear any shadow effects before rendering bottom text
         this.ctx.shadowBlur = 0;
         this.ctx.shadowColor = 'transparent';
-        
-        // Instructions
-        this.ctx.fillStyle = '#666';
-        this.ctx.font = '14px monospace';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText('Click to Select • ESC Exit', gameWidth / 2, gameHeight * 0.85);
         
         // Version info
         this.ctx.fillStyle = '#444';
@@ -221,10 +216,12 @@ class HomeScreen {
         // Content based on sub-menu type
         this.ctx.fillStyle = '#ffffff';
         this.ctx.font = '24px monospace';
-        this.ctx.textAlign = 'center';
-        
-        if (this.showingSubMenu === 'controls') {
+        this.ctx.textAlign = 'center';        if (this.showingSubMenu === 'options') {
+            this.renderOptionsMenu(boxX, boxY, boxWidth, boxHeight);
+        } else if (this.showingSubMenu === 'controls') {
             this.renderControlsMenu(boxX, boxY, boxWidth, boxHeight);
+        } else if (this.showingSubMenu === 'credits') {
+            this.renderCreditsMenu(boxX, boxY, boxWidth, boxHeight);
         } else if (this.showingSubMenu === 'about') {
             this.renderAboutMenu(boxX, boxY, boxWidth, boxHeight);
         }
@@ -332,6 +329,130 @@ class HomeScreen {
             y += 25;
         });
     }
+      renderCreditsMenu(boxX, boxY, boxWidth, boxHeight) {
+        const centerX = boxX + boxWidth / 2;
+        let y = boxY + 50;
+        
+        this.ctx.fillStyle = '#00ffff';
+        this.ctx.font = 'bold 28px monospace';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('CREDITS', centerX, y);
+        
+        y += 60;
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = '20px monospace';
+        this.ctx.fillText('Game Development', centerX, y);
+        
+        y += 40;
+        
+        // NanoShade credit
+        this.ctx.fillStyle = '#00ff88';
+        this.ctx.font = 'bold 18px monospace';
+        this.ctx.fillText('NanoShade', centerX, y);
+        
+        y += 30;
+        
+        // PixelPunk credit
+        this.ctx.fillStyle = '#ff88ff';
+        this.ctx.font = 'bold 18px monospace';
+        this.ctx.fillText('PixelPunk', centerX, y);
+        
+        y += 50;
+        
+        // Music section
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = '20px monospace';
+        this.ctx.fillText('Music', centerX, y);
+        
+        y += 40;
+        
+        // Music credits
+        this.ctx.fillStyle = '#ffaa00';
+        this.ctx.font = '14px monospace';
+        this.ctx.fillText('Cyberpunk by jiglr', centerX, y);
+        
+        y += 20;
+        this.ctx.fillStyle = '#cccccc';
+        this.ctx.font = '12px monospace';
+        this.ctx.fillText('https://soundcloud.com/jiglrmusic', centerX, y);
+        
+        y += 25;
+        this.ctx.fillText('Music promoted by https://www.free-stock-music.com', centerX, y);
+        
+        y += 20;
+        this.ctx.fillText('Creative Commons / Attribution 3.0 Unported License (CC BY 3.0)', centerX, y);
+        
+        y += 20;
+        this.ctx.fillText('https://creativecommons.org/licenses/by/3.0/deed.en_US', centerX, y);
+        
+        y += 40;
+          // Thank you message
+        this.ctx.fillStyle = '#cccccc';
+        this.ctx.font = '16px monospace';
+        this.ctx.fillText('Thank you for playing!', centerX, y);
+    }
+
+    renderOptionsMenu(boxX, boxY, boxWidth, boxHeight) {
+        const centerX = boxX + boxWidth / 2;
+        let y = boxY + 50;
+        
+        this.ctx.fillStyle = '#00ffff';
+        this.ctx.font = 'bold 28px monospace';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('OPTIONS', centerX, y);
+        
+        y += 80;
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = '20px monospace';
+        
+        // Create clickable option buttons
+        const options = [
+            { text: 'HELP & TUTORIAL', action: 'help' },
+            { text: 'GAME SETTINGS', action: 'settings' },
+            { text: 'CONTROLS', action: 'controls' },
+            { text: 'FEEDBACK', action: 'feedback' }
+        ];
+        
+        options.forEach((option, index) => {
+            const isHovered = index === this.hoveredOptionIndex;
+            
+            // Button background
+            if (isHovered) {
+                this.ctx.fillStyle = 'rgba(0, 255, 255, 0.2)';
+                this.ctx.fillRect(centerX - 150, y - 25, 300, 40);
+                this.ctx.strokeStyle = '#00ffff';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(centerX - 150, y - 25, 300, 40);
+            }
+            
+            // Button text
+            this.ctx.fillStyle = isHovered ? '#00ffff' : '#ffffff';
+            this.ctx.font = isHovered ? 'bold 20px monospace' : '20px monospace';
+            
+            if (isHovered) {
+                this.ctx.shadowColor = '#00ffff';
+                this.ctx.shadowBlur = 10;
+            }
+            
+            this.ctx.fillText(option.text, centerX, y);
+            this.ctx.shadowBlur = 0;
+            
+            y += 60;
+        });
+        
+        // Store option bounds for click detection
+        this.optionBounds = [];
+        for (let i = 0; i < options.length; i++) {
+            this.optionBounds.push({
+                x: centerX - 150,
+                y: boxY + 130 + (i * 60) - 25,
+                width: 300,
+                height: 40,
+                action: options[i].action
+            });
+        }
+    }
+    
     
     renderBackgroundParticles() {
         this.ctx.save();
@@ -386,9 +507,9 @@ class HomeScreen {
             window.settingsMenuUI.updateMousePosition(x, y);
             return;
         }
-        
-        // Check which menu item is being hovered
+          // Check which menu item is being hovered
         this.hoveredMenuItem = -1;
+        this.hoveredOptionIndex = -1;
         
         if (!this.showingSubMenu) {
             for (let i = 0; i < this.menuItems.length; i++) {
@@ -396,6 +517,16 @@ class HomeScreen {
                 if (x >= bounds.x && x <= bounds.x + bounds.width &&
                     y >= bounds.y && y <= bounds.y + bounds.height) {
                     this.hoveredMenuItem = i;
+                    break;
+                }
+            }
+        } else if (this.showingSubMenu === 'options' && this.optionBounds) {
+            // Check which option is being hovered in options menu
+            for (let i = 0; i < this.optionBounds.length; i++) {
+                const bounds = this.optionBounds[i];
+                if (x >= bounds.x && x <= bounds.x + bounds.width &&
+                    y >= bounds.y && y <= bounds.y + bounds.height) {
+                    this.hoveredOptionIndex = i;
                     break;
                 }
             }
@@ -422,12 +553,28 @@ class HomeScreen {
         
         return false;
     }    handleClick(x, y) {
+        // Handle user interaction for audio (browsers require user interaction to play audio)
+        if (window.audioSystem) {
+            window.audioSystem.handleUserInteraction();
+        }
+        
         // Handle settings menu clicks first if it's open
         if (window.settingsMenuUI && window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
             return window.settingsMenuUI.handleMouseClick(x, y, 0); // Left click
         }
-        
-        if (this.showingSubMenu) {
+          if (this.showingSubMenu) {
+            // Handle clicks in options submenu
+            if (this.showingSubMenu === 'options' && this.optionBounds) {
+                for (let i = 0; i < this.optionBounds.length; i++) {
+                    const bounds = this.optionBounds[i];
+                    if (x >= bounds.x && x <= bounds.x + bounds.width &&
+                        y >= bounds.y && y <= bounds.y + bounds.height) {
+                        this.handleOptionClick(bounds.action);
+                        return true;
+                    }
+                }
+            }
+            // Close submenu if clicked outside
             this.showingSubMenu = null;
             return true;
         }
@@ -442,32 +589,67 @@ class HomeScreen {
         }
         
         return false;
-    }
-      selectMenuItem(index = this.hoveredMenuItem) {
+    }selectMenuItem(index = this.hoveredMenuItem) {
         if (index < 0 || index >= this.menuItems.length) return false;
         
-        const selectedItem = this.menuItems[index];
-        
-        switch (selectedItem.action) {
+        const selectedItem = this.menuItems[index];        switch (selectedItem.action) {
             case 'start':
                 return 'start_game'; // Signal to start the game
                 
-            case 'settings':
-                if (window.openSettingsMenu) {
-                    window.openSettingsMenu();
+            case 'leaderboard':
+                // Show leaderboard
+                if (window.authUI && window.authUI.showLeaderboard) {
+                    window.authUI.showLeaderboard();
+                } else if (window.authUI && window.authUI.showSignInMenu) {
+                    // If not signed in, show sign-in prompt
+                    window.authUI.showSignInMenu();
                 }
                 return true;
                 
-            case 'controls':
-                this.showingSubMenu = 'controls';
+            case 'options':
+                // Show options submenu
+                this.showingSubMenu = 'options';
+                return true;
+                
+            case 'credits':
+                this.showingSubMenu = 'credits';
                 return true;
                 
             case 'about':
                 this.showingSubMenu = 'about';
                 return true;
-        }
-        
+        }        
         return true;
+    }
+
+    handleOptionClick(action) {
+        switch (action) {
+            case 'help':
+                // Start tutorial
+                if (window.tutorialSystem) {
+                    window.tutorialSystem.start();
+                }
+                this.showingSubMenu = null; // Close options menu
+                break;
+                
+            case 'settings':
+                if (window.openSettingsMenu) {
+                    window.openSettingsMenu();
+                }
+                this.showingSubMenu = null; // Close options menu
+                break;
+                
+            case 'controls':
+                // Switch to controls submenu
+                this.showingSubMenu = 'controls';
+                break;
+                
+            case 'feedback':
+                // Open feedback form in a new tab/window
+                window.open('https://forms.office.com/r/Gz5eXJSvJx', '_blank');
+                this.showingSubMenu = null; // Close options menu
+                break;
+        }
     }
 }
 

@@ -7,6 +7,69 @@ let harvesterSystem = {
     globalSpeedMultiplier: 1,
     globalIntervalDivisor: 1,
     
+    // Pickup system
+    pickedUpHarvester: null,
+    mouseX: 0,
+    mouseY: 0,
+    isInitialized: false,      init() {
+        if (this.isInitialized) return;
+        // Remove setupMouseEvents() call - input.js handles all clicks now
+        this.isInitialized = true;
+  
+    },
+    
+    setupMouseEvents() {
+        // Deprecated - input.js now handles all mouse events
+        // This method is kept for backward compatibility but does nothing
+        return;
+    },    handleClick(gameX, gameY) {
+        if (this.pickedUpHarvester) {
+            // Place the carried harvester
+            this.placeHarvester(gameX, gameY);
+        } else {
+            // Try to pick up a harvester
+            this.tryPickupHarvester(gameX, gameY);
+        }
+    },    tryPickupHarvester(gameX, gameY) {
+        for (let i = 0; i < this.harvesters.length; i++) {
+            const harvester = this.harvesters[i];
+            const dx = gameX - harvester.x;
+            const dy = gameY - harvester.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance <= harvester.size * 2) { // Slightly larger click area
+                // Pick up this harvester
+                this.pickedUpHarvester = harvester;
+                this.harvesters.splice(i, 1);
+                
+                // Visual feedback
+                if (window.createScreenFlash) {
+                    window.createScreenFlash('#00ffaa', 0.1, 100);
+                }
+                
+                break;
+            }
+        }
+    },
+    
+    placeHarvester(gameX, gameY) {
+        // Ensure placement within bounds
+        const margin = this.pickedUpHarvester.size;
+        const x = Math.max(margin, Math.min(gameX, window.GAME_WIDTH - margin));
+        const y = Math.max(margin, Math.min(gameY, window.GAME_HEIGHT - margin));
+        
+        this.pickedUpHarvester.x = x;
+        this.pickedUpHarvester.y = y;
+          // Add back to harvesters array
+        this.harvesters.push(this.pickedUpHarvester);
+        
+        // Visual feedback
+        if (window.createScreenFlash) {
+            window.createScreenFlash('#00ff00', 0.15, 120);
+        }
+          this.pickedUpHarvester = null;
+    },
+    
     applyUpgradesToHarvester(harvester) {
         harvester.energyGenerationRate = harvester.baseEnergyGenerationRate * this.globalSpeedMultiplier;
         harvester.generationInterval = harvester.baseGenerationInterval / this.globalIntervalDivisor;
@@ -42,10 +105,12 @@ class Harvester {
         this.generationInterval = 2000; // Current interval (affected by upgrades)
         this.lastEnergyGeneration = performance.now();
         this.totalEnergyGenerated = 0;
-        
-        // Particles
+          // Particles
         this.particles = [];
         this.maxParticles = 6;
+        
+        // Pickup system
+        this.isBeingCarried = false;
         
         console.log(`🏭 Harvester deployed at (${x.toFixed(1)}, ${y.toFixed(1)})`);
     }
@@ -64,8 +129,7 @@ class Harvester {
             this.deployAnimation -= deltaTime * 0.003;
             this.deployAnimation = Math.max(0, this.deployAnimation);
         }
-        
-        // Generate energy periodically
+          // Generate energy periodically (unless jammed)
         if (now - this.lastEnergyGeneration >= this.generationInterval) {
             this.generateEnergy();
             this.lastEnergyGeneration = now;
@@ -79,8 +143,12 @@ class Harvester {
             this.spawnEnergyParticle();
         }
     }
-    
-    generateEnergy() {
+      generateEnergy() {
+        // Don't generate energy if jammed
+        if (this.isJammed) {
+            return;
+        }
+        
         // Add energy to game state
         if (window.gameState) {
             window.gameState.energy += this.energyGenerationRate;
@@ -135,8 +203,7 @@ class Harvester {
             alpha: 1,
             size: 2 + Math.random() * 3
         });
-    }
-      render(ctx) {
+    }    render(ctx) {
         ctx.save();
         
         // Move to harvester center
@@ -150,12 +217,26 @@ class Harvester {
         // Render energy particles first
         this.renderParticles(ctx);
         
-        // Outer glow effect
+        // Render aura boost effect if boosted
+        if (this.isAuraBoosted && this.auraBoostLevel) {
+            this.renderAuraBoost(ctx);
+        }
+
+        // Outer glow effect (dimmed if jammed)
         const glowRadius = this.size * 2 * this.glowIntensity;
         const glowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowRadius);
-        glowGradient.addColorStop(0, `rgba(0, 255, 0, ${this.glowIntensity * 0.3})`);
-        glowGradient.addColorStop(0.7, `rgba(0, 200, 0, ${this.glowIntensity * 0.1})`);
-        glowGradient.addColorStop(1, 'rgba(0, 255, 0, 0)');
+        
+        if (this.isJammed) {
+            // Red tint when jammed
+            glowGradient.addColorStop(0, `rgba(255, 100, 0, ${this.glowIntensity * 0.2})`);
+            glowGradient.addColorStop(0.7, `rgba(200, 80, 0, ${this.glowIntensity * 0.05})`);
+            glowGradient.addColorStop(1, 'rgba(255, 100, 0, 0)');
+        } else {
+            // Normal green glow
+            glowGradient.addColorStop(0, `rgba(0, 255, 0, ${this.glowIntensity * 0.3})`);
+            glowGradient.addColorStop(0.7, `rgba(0, 200, 0, ${this.glowIntensity * 0.1})`);
+            glowGradient.addColorStop(1, 'rgba(0, 255, 0, 0)');
+        }
         
         ctx.fillStyle = glowGradient;
         ctx.beginPath();
@@ -197,12 +278,45 @@ class Harvester {
             ctx.strokeStyle = `rgba(0, 255, 0, ${0.8 + this.glowIntensity * 0.2})`;
             ctx.lineWidth = 1;
             ctx.stroke();
-            
-            // Add center energy core
+              // Add center energy core
             ctx.beginPath();
             ctx.arc(0, 0, 2, 0, Math.PI * 2);
             ctx.fillStyle = `rgba(200, 255, 200, ${this.glowIntensity})`;
             ctx.fill();
+        }
+          // Draw jammed indicator if harvester is disabled
+        if (this.isJammed) {
+            ctx.save();
+            ctx.globalAlpha = 0.8;
+            ctx.strokeStyle = '#ff4400';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([4, 4]);
+            
+            // Draw X over the harvester
+            const size = this.size * 1.5;
+            ctx.beginPath();
+            ctx.moveTo(-size, -size);
+            ctx.lineTo(size, size);
+            ctx.moveTo(size, -size);
+            ctx.lineTo(-size, size);
+            ctx.stroke();
+            
+            ctx.setLineDash([]);
+            ctx.restore();
+        }
+        
+        // Draw subtle clickable indicator
+        if (!window.harvesterSystem || !window.harvesterSystem.pickedUpHarvester) {
+            ctx.save();
+            ctx.globalAlpha = 0.3 + Math.sin(performance.now() * 0.005) * 0.1;
+            ctx.strokeStyle = '#00ffaa';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([2, 2]);
+            ctx.beginPath();
+            ctx.arc(0, 0, this.size + 8, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
         }
         
         ctx.restore();
@@ -246,6 +360,52 @@ class Harvester {
             deployTime: this.deployTime,
             age: performance.now() - this.deployTime
         };
+    }
+    
+    renderAuraBoost(ctx) {
+        // Create pulsing aura effect around boosted harvesters
+        const boostRadius = this.size * 3;
+        const boostIntensity = 0.3 + Math.sin(this.pulsePhase * 2) * 0.2;
+        
+        // Get zone color based on boost level
+        const zoneColors = [
+            '#ffff00', // Zone 1: Yellow
+            '#00ffff', // Zone 2: Cyan  
+            '#ff4444', // Zone 3: Red
+            '#44ff44', // Zone 4: Green
+            '#ffaa00', // Zone 5: Orange
+            '#aa44ff', // Zone 6: Purple
+            '#ff44aa', // Zone 7: Pink
+            '#ffffff'  // Zone 8+: White
+        ];
+        
+        const boostColor = zoneColors[Math.min(this.auraBoostLevel - 1, zoneColors.length - 1)];
+        
+        // Create boost aura
+        const auraGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, boostRadius);
+        auraGradient.addColorStop(0, `${boostColor}00`); // Transparent center
+        auraGradient.addColorStop(0.3, `${boostColor}${Math.floor(boostIntensity * 100).toString(16).padStart(2, '0')}`);
+        auraGradient.addColorStop(0.8, `${boostColor}${Math.floor(boostIntensity * 50).toString(16).padStart(2, '0')}`);
+        auraGradient.addColorStop(1, `${boostColor}00`); // Transparent edge
+        
+        ctx.fillStyle = auraGradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, boostRadius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Add boost indicator ring
+        ctx.strokeStyle = `${boostColor}${Math.floor(boostIntensity * 150).toString(16).padStart(2, '0')}`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, boostRadius * 0.7, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Add boost percentage text
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'center';
+        const boostPercent = ((this.energyGenerationRate / this.originalGenerationRate - 1) * 100).toFixed(0);
+        ctx.fillText(`+${boostPercent}%`, 0, -boostRadius - 8);
     }
 }
 
@@ -324,13 +484,11 @@ function deployHarvester() {
     if (window.gameState) {
         window.gameState.harvesters = harvesters.length;
     }
-    
-    // Visual feedback for successful deployment
+      // Visual feedback for successful deployment
     if (window.createScreenFlash) {
         window.createScreenFlash('#00ff00', 0.15, 120);
     }
-    
-    // Haptic feedback for success
+      // Haptic feedback for success
     if (navigator.vibrate) {
         navigator.vibrate([75, 25, 75]);
     }
@@ -339,6 +497,11 @@ function deployHarvester() {
 }
 
 function renderHarvesters(ctx) {
+    // Initialize harvester system if not done yet
+    if (window.harvesterSystem && !window.harvesterSystem.isInitialized) {
+        window.harvesterSystem.init();
+    }
+    
     // Use the harvesterSystem.harvesters array (current system)
     if (window.harvesterSystem && window.harvesterSystem.harvesters) {
         window.harvesterSystem.harvesters.forEach(harvester => {
@@ -350,6 +513,80 @@ function renderHarvesters(ctx) {
     harvesters.forEach(harvester => {
         harvester.render(ctx);
     });
+    
+    // Render picked up harvester if there is one
+    if (window.harvesterSystem && window.harvesterSystem.pickedUpHarvester) {
+        renderPickedUpHarvester(ctx, window.harvesterSystem.pickedUpHarvester);
+    }
+}
+
+function renderPickedUpHarvester(ctx, harvester) {
+    ctx.save();
+    
+    // Semi-transparent while being carried
+    ctx.globalAlpha = 0.7;
+    
+    // Move to harvester position
+    ctx.translate(harvester.x, harvester.y);
+    
+    // Pulsing scale effect while being carried
+    const scale = 1 + Math.sin(performance.now() * 0.01) * 0.1;
+    ctx.scale(scale, scale);
+    
+    // Render energy particles first
+    harvester.renderParticles(ctx);
+    
+    // Outer glow effect (brighter while being carried)
+    const glowRadius = harvester.size * 3;
+    const glowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowRadius);
+    glowGradient.addColorStop(0, 'rgba(0, 255, 170, 0.4)');
+    glowGradient.addColorStop(0.7, 'rgba(0, 200, 150, 0.2)');
+    glowGradient.addColorStop(1, 'rgba(0, 255, 170, 0)');
+    
+    ctx.fillStyle = glowGradient;
+    ctx.beginPath();
+    ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Draw dashed outline to show it's being moved
+    ctx.strokeStyle = '#00ffaa';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 4]);
+    ctx.beginPath();
+    ctx.arc(0, 0, harvester.size + 5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Check if sprite is available and loaded
+    if (window.sprites && window.sprites.harvester && window.sprites.loaded) {
+        // Draw the harvester sprite centered
+        const spriteSize = harvester.size * 4;
+        ctx.drawImage(window.sprites.harvester, -spriteSize/2, -spriteSize/2, spriteSize, spriteSize);
+    } else {
+        // Fallback to primitive rendering
+        ctx.beginPath();
+        const points = 3;
+        for (let i = 0; i < points; i++) {
+            const angle = (i / points) * Math.PI * 2 - Math.PI / 2;
+            const x = Math.cos(angle) * harvester.size;
+            const y = Math.sin(angle) * harvester.size;
+            
+            if (i === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+        ctx.closePath();
+        
+        ctx.fillStyle = '#00ffaa';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+    }
+    
+    ctx.restore();
 }
 
 function getHarvesterStats() {

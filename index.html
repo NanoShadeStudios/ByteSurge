@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=800, initial-scale=1.0">
   <title>ByteSurge: Infinite Loop</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -36,15 +38,28 @@
     
     <div class="loading" id="loadingText">Initializing...</div>
   </div>
-    <!-- Game stats are now rendered in canvas --><!-- Modular Game Scripts -->
+    <!-- Game stats are now rendered in canvas -->  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+  
+  <!-- Modular Game Scripts -->
   <script src="js/settings.js"></script>
+  <script src="js/audioSystem.js"></script>
   <script src="js/openingAnimation.js"></script>
   <script src="js/homeScreen.js"></script>
   <script src="js/drone.js"></script>  <script src="js/energyNodes.js"></script>
+  <script src="js/corruptionBlobTypes.js"></script>
   <script src="js/corruptionSystem.js"></script>
   <script src="js/corruptionZones.js"></script>
-  <script src="js/harvesters.js"></script>
-  <script src="js/upgrades.js"></script>
+  <script src="js/harvesters.js"></script>  <script src="js/upgrades.js"></script>
+  <script src="js/tutorial.js"></script>
+  
+  <!-- Firebase Integration -->
+  <script src="js/firebase.js"></script>
+  <script src="js/authUI.js"></script>
+  
   <script src="js/input.js"></script>
   <script src="js/game.js"></script>
 </body>

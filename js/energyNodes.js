@@ -60,9 +60,11 @@ window.EnergyNodeSystem = {
         const node = new EnergyNode(x, y, window.gameState ? window.gameState.currentZone : 1);
         this.nodes.push(node);
     },
-    
-    collectNode(node) {
+      collectNode(node) {
         if (node.isCollected) return;
+        
+        // Remove all aura bonuses before marking as collected
+        node.removeAllAuraBonuses();
         
         node.isCollected = true;
         node.collectionTime = 0;
@@ -72,17 +74,20 @@ window.EnergyNodeSystem = {
         if (window.zoneSystem && window.gameState) {
             const zoneData = window.zoneSystem.getCurrentZoneData();
             energyValue *= zoneData.energyMultiplier;
-        }
-        
-        // Apply any active bonuses
+        }        // Apply any active bonuses
         if (window.gameState) {
             window.gameState.energy += energyValue;
         }
         
-        // Create screen flash effect
-        if (window.createScreenFlash) {
-            window.createScreenFlash(node.color, 0.2, 100);
+        // Notify tutorial system about energy collection
+        if (window.tutorialSystem && window.tutorialSystem.onEnergyCollected) {
+            window.tutorialSystem.onEnergyCollected();
         }
+        
+        // Removed screen flash effect for cleaner gameplay
+        // if (window.createScreenFlash) {
+        //     window.createScreenFlash(node.color, 0.2, 100);
+        // }
         
         // Play collection sound (if we add sound later)
         // playSound('collect');
@@ -93,8 +98,7 @@ window.EnergyNodeSystem = {
 class EnergyNode {
     constructor(x, y, zoneLevel = 1) {
         this.x = x;
-        this.y = y;
-        this.size = 6;
+        this.y = y;        this.size = 6;
         this.value = 1; // Base energy value when collected
         this.zoneLevel = zoneLevel;
         
@@ -103,12 +107,18 @@ class EnergyNode {
         this.color = this.getZoneColor(zoneLevel);
         this.glowColor = this.getGlowColor(zoneLevel);
         
+        // Aura system for harvester boost
+        this.auraRadius = 80 + (zoneLevel * 10); // Larger aura for higher zones
+        this.auraBonus = 1 + (zoneLevel * 0.3); // 30% bonus per zone level
+        this.affectedHarvesters = new Set(); // Track which harvesters are boosted
+        
         // Visual effects
         this.spawnTime = performance.now();
         this.pulsePhase = Math.random() * Math.PI * 2; // Random start phase
         this.blinkPhase = Math.random() * Math.PI * 2; // Random blink timing
         this.floatOffset = 0;
         this.rotationAngle = 0;
+        this.auraPhase = Math.random() * Math.PI * 2; // For aura animation
         
         // Collection effects
         this.isCollected = false;
@@ -154,17 +164,22 @@ class EnergyNode {
         ];
         return glowColors[Math.min(zoneLevel - 1, glowColors.length - 1)];
     }
-    
-    update(deltaTime) {
+      update(deltaTime) {
         const dt = deltaTime / 1000;
         
         // Update visual effects
         this.pulsePhase += deltaTime * 0.005;
         this.blinkPhase += deltaTime * 0.003; // 2-second cycle = ~0.003
         this.rotationAngle += deltaTime * 0.001;
+        this.auraPhase += deltaTime * 0.002; // Slow aura animation
         
         // Floating animation
         this.floatOffset = Math.sin(this.pulsePhase * 1.5) * 2;
+        
+        // Update harvester aura effects (only if not collected)
+        if (!this.isCollected) {
+            this.updateHarvesterAura();
+        }
         
         // Update collection animation
         if (this.isCollected) {
@@ -201,13 +216,16 @@ class EnergyNode {
         // Remove dead particles
         this.particles = this.particles.filter(particle => particle.life > 0);
     }
-    
-    render(ctx) {
+      render(ctx) {
         if (this.isCollected && this.collectionTime > 300) {
             return; // Don't render if collection animation is done
         }
         
         ctx.save();
+          // Render aura first (behind the energy node) - always show for strategic planning
+        if (!this.isCollected) {
+            this.renderAura(ctx);
+        }
         
         // Move to energy node position with floating
         ctx.translate(this.x, this.y + this.floatOffset);
@@ -292,9 +310,11 @@ class EnergyNode {
             radius: this.size / 2
         };
     }
-    
-    collect() {
+      collect() {
         if (this.isCollected) return false;
+        
+        // Remove all aura bonuses before marking as collected
+        this.removeAllAuraBonuses();
         
         this.isCollected = true;
         this.collectionTime = 0;
@@ -305,6 +325,168 @@ class EnergyNode {
     
     isReadyForRemoval() {
         return this.isCollected && this.collectionTime > 500 && this.particles.length === 0;
+    }
+    
+    updateHarvesterAura() {
+        // Get all harvesters from the system
+        let allHarvesters = [];
+        
+        // Get harvesters from the main system
+        if (window.harvesterSystem && window.harvesterSystem.harvesters) {
+            allHarvesters = allHarvesters.concat(window.harvesterSystem.harvesters);
+        }
+        
+        // Also check for legacy harvesters array
+        if (window.harvesters && Array.isArray(window.harvesters)) {
+            allHarvesters = allHarvesters.concat(window.harvesters);
+        }
+        
+        // Track currently affected harvesters
+        const currentlyAffected = new Set();
+        
+        // Check each harvester
+        allHarvesters.forEach(harvester => {
+            if (!harvester || harvester.isBeingCarried) return;
+            
+            // Calculate distance to this energy node
+            const dx = harvester.x - this.x;
+            const dy = harvester.y - this.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance <= this.auraRadius) {
+                // Harvester is within aura range
+                currentlyAffected.add(harvester);
+                
+                // Apply aura bonus if not already applied
+                if (!this.affectedHarvesters.has(harvester)) {
+                    this.applyAuraBonus(harvester);
+                    this.affectedHarvesters.add(harvester);
+                }
+            }
+        });
+        
+        // Remove aura bonus from harvesters that left the range
+        this.affectedHarvesters.forEach(harvester => {
+            if (!currentlyAffected.has(harvester)) {
+                this.removeAuraBonus(harvester);
+                this.affectedHarvesters.delete(harvester);
+            }
+        });
+    }
+    
+    applyAuraBonus(harvester) {
+        // Store original values if not already stored
+        if (!harvester.originalGenerationRate) {
+            harvester.originalGenerationRate = harvester.energyGenerationRate;
+            harvester.originalGenerationInterval = harvester.generationInterval;
+        }
+        
+        // Apply aura bonus (multiplicative)
+        harvester.energyGenerationRate = harvester.originalGenerationRate * this.auraBonus;
+        harvester.generationInterval = harvester.originalGenerationInterval / this.auraBonus;
+        
+        // Visual feedback - mark as boosted
+        harvester.isAuraBoosted = true;
+        harvester.auraBoostLevel = this.zoneLevel;
+        
+        console.log(`🌟 Harvester boosted by Zone ${this.zoneLevel} energy node! Bonus: +${((this.auraBonus - 1) * 100).toFixed(0)}%`);
+    }
+    
+    removeAuraBonus(harvester) {
+        // Restore original values
+        if (harvester.originalGenerationRate) {
+            harvester.energyGenerationRate = harvester.originalGenerationRate;
+            harvester.generationInterval = harvester.originalGenerationInterval;
+        }
+        
+        // Remove visual feedback
+        harvester.isAuraBoosted = false;
+        harvester.auraBoostLevel = 0;
+        
+        console.log(`💔 Harvester lost aura bonus`);
+    }
+    
+    // Called when energy node is collected
+    removeAllAuraBonuses() {
+        this.affectedHarvesters.forEach(harvester => {
+            this.removeAuraBonus(harvester);
+        });
+        this.affectedHarvesters.clear();
+        
+        console.log(`⚡ Zone ${this.zoneLevel} energy node collected - all aura bonuses removed`);
+    }
+      renderAura(ctx) {
+        ctx.save();
+        
+        // Determine aura intensity based on whether harvesters are affected
+        const hasActiveHarvesters = this.affectedHarvesters.size > 0;
+        const baseIntensity = hasActiveHarvesters ? 0.15 : 0.08; // More subtle when no harvesters
+        const auraIntensity = baseIntensity + Math.sin(this.auraPhase) * (hasActiveHarvesters ? 0.08 : 0.03);
+        const auraRadius = this.auraRadius + Math.sin(this.auraPhase * 1.5) * 5;
+        
+        // Create radial gradient for aura
+        const gradient = ctx.createRadialGradient(
+            this.x, this.y, 0,
+            this.x, this.y, auraRadius
+        );
+        
+        // Use zone color for aura with different opacity for active vs potential
+        const auraColor = this.color;
+        const centerOpacity = Math.floor(auraIntensity * 255).toString(16).padStart(2, '0');
+        const midOpacity = Math.floor(auraIntensity * 0.6 * 255).toString(16).padStart(2, '0');
+        const edgeOpacity = Math.floor(auraIntensity * 0.2 * 255).toString(16).padStart(2, '0');
+        
+        gradient.addColorStop(0, `${auraColor}00`); // Transparent center
+        gradient.addColorStop(0.2, `${auraColor}${centerOpacity}`);
+        gradient.addColorStop(0.6, `${auraColor}${midOpacity}`);
+        gradient.addColorStop(0.9, `${auraColor}${edgeOpacity}`);
+        gradient.addColorStop(1, `${auraColor}00`); // Transparent edge
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, auraRadius, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Add ring effect - solid when active, dashed when potential
+        const ringOpacity = Math.floor(auraIntensity * (hasActiveHarvesters ? 200 : 100)).toString(16).padStart(2, '0');
+        ctx.strokeStyle = `${auraColor}${ringOpacity}`;
+        ctx.lineWidth = hasActiveHarvesters ? 2 : 1;
+        
+        if (!hasActiveHarvesters) {
+            // Dashed line for potential aura
+            ctx.setLineDash([5, 5]);
+        }
+        
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, auraRadius * 0.8, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        if (!hasActiveHarvesters) {
+            ctx.setLineDash([]); // Reset line dash
+        }
+        
+        // Show boost information
+        ctx.fillStyle = hasActiveHarvesters ? '#ffffff' : '#cccccc';
+        ctx.font = hasActiveHarvesters ? '10px monospace' : '9px monospace';
+        ctx.textAlign = 'center';
+        
+        if (hasActiveHarvesters) {
+            // Show active boost
+            ctx.fillText(
+                `+${((this.auraBonus - 1) * 100).toFixed(0)}% ACTIVE`,
+                this.x,
+                this.y - this.auraRadius - 15
+            );
+        } else {
+            // Show potential boost
+            ctx.fillText(
+                `+${((this.auraBonus - 1) * 100).toFixed(0)}% boost area`,
+                this.x,
+                this.y - this.auraRadius - 15
+            );
+        }
+        
+        ctx.restore();
     }
 }
 
@@ -393,15 +575,14 @@ function checkEnergyCollisions(drone) {
         if (!node.isCollected) {
             const dx = node.x - drone.x;
             const dy = node.y - drone.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-              if (distance < node.size + drone.size) {
+            const distance = Math.sqrt(dx * dx + dy * dy);            if (distance < node.size + drone.size) {
                 totalEnergyCollected += node.value;
                 node.isCollected = true;
                 
-                // Create visual feedback for collection
-                if (window.createScreenFlash) {
-                    window.createScreenFlash(node.color || '#00ff00', 0.15, 100);
-                }
+                // Removed visual flash feedback for cleaner gameplay
+                // if (window.createScreenFlash) {
+                //     window.createScreenFlash(node.color || '#00ff00', 0.15, 100);
+                // }
             }
         }
     }

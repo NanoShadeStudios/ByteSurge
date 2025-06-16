@@ -13,11 +13,44 @@ let inputState = {
 };
 
 // ===== INPUT SYSTEM =====
+
+// Check if user is currently typing in an input field
+function isTypingInInputField() {
+    const activeElement = document.activeElement;
+    if (!activeElement) return false;
+    
+    const inputTypes = ['input', 'textarea'];
+    const editableTypes = ['text', 'email', 'password', 'search', 'url'];
+    
+    // Check if it's an input element
+    if (inputTypes.includes(activeElement.tagName.toLowerCase())) {
+        // For input elements, check if it's an editable type
+        if (activeElement.tagName.toLowerCase() === 'input') {
+            const inputType = activeElement.type.toLowerCase();
+            return editableTypes.includes(inputType);
+        }
+        return true; // textarea is always editable
+    }
+    
+    // Check if element has contenteditable
+    if (activeElement.contentEditable === 'true') {
+        return true;
+    }
+    
+    return false;
+}
+
 function setupInputHandlers() {
     console.log('🎮 Setting up advanced input system...');
     
     // === KEYBOARD INPUT SYSTEM ===
     document.addEventListener('keydown', (e) => {
+        // Check if user is typing in an input field
+        if (isTypingInInputField()) {
+            console.log('🔤 User is typing in input field, ignoring game controls for key:', e.code);
+            return; // Don't process game controls when typing
+        }
+        
         // Add to input state tracking
         inputState.keys.add(e.code);
         inputState.lastInputTime = performance.now();
@@ -32,7 +65,7 @@ function setupInputHandlers() {
         // Maintain buffer size
         if (inputState.inputBuffer.length > inputState.maxBufferSize) {
             inputState.inputBuffer.shift();
-        }        // Handle upgrade menu input first (works even when game isn't running)
+        }// Handle upgrade menu input first (works even when game isn't running)
         if (e.code === 'KeyU') {
             console.log('🔑 U key pressed - checking upgrade system...');
             console.log('upgradeSystem exists:', !!window.upgradeSystem);
@@ -106,11 +139,17 @@ function setupInputHandlers() {
                 console.error('❌ openSettingsMenu function not found!');
             }
             return;
-        }
-
-        // Handle game-specific inputs
+        }        // Handle game-specific inputs
         if (!window.getGameRunning || !window.getGameRunning()) return;
-          switch(e.code) {
+        
+      
+        
+        // Handle user interaction for audio on any key press during gameplay
+        if (window.audioSystem) {
+            window.audioSystem.handleUserInteraction();
+        }
+        
+        switch(e.code) {
             case 'Space':
                 e.preventDefault();
                 handleTurn();
@@ -140,8 +179,12 @@ function setupInputHandlers() {
                 break;
         }
     });
-    
-    document.addEventListener('keyup', (e) => {
+      document.addEventListener('keyup', (e) => {
+        // Check if user is typing in an input field
+        if (isTypingInInputField()) {
+            return; // Don't process game controls when typing
+        }
+        
         inputState.keys.delete(e.code);
         
         inputState.inputBuffer.push({
@@ -156,8 +199,7 @@ function setupInputHandlers() {
     });
     
     // === MOUSE INPUT SYSTEM ===
-    const canvas = document.getElementById('gameCanvas');
-      canvas.addEventListener('mousemove', (e) => {
+    const canvas = document.getElementById('gameCanvas');      canvas.addEventListener('mousemove', (e) => {
         const rect = canvas.getBoundingClientRect();
         const gameCoords = window.viewportManager.screenToGame(e.clientX, e.clientY);
         inputState.mousePos = gameCoords;
@@ -170,7 +212,15 @@ function setupInputHandlers() {
         if (window.settingsMenuUI && window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
             window.settingsMenuUI.updateMousePosition(gameCoords.x, gameCoords.y);
         }
-    });    canvas.addEventListener('mousedown', (e) => {
+        
+        // Update harvester position if carrying one
+        if (window.harvesterSystem && window.harvesterSystem.pickedUpHarvester) {
+            window.harvesterSystem.mouseX = gameCoords.x;
+            window.harvesterSystem.mouseY = gameCoords.y;
+            window.harvesterSystem.pickedUpHarvester.x = gameCoords.x;
+            window.harvesterSystem.pickedUpHarvester.y = gameCoords.y;
+        }
+    });canvas.addEventListener('mousedown', (e) => {
         inputState.mouseButtons.add(e.button);
         inputState.lastInputTime = performance.now();
           // Handle upgrade menu clicks first
@@ -191,13 +241,23 @@ function setupInputHandlers() {
                 e.preventDefault();
                 return;
             }
-        }
-        
-        if (!window.getGameRunning || !window.getGameRunning()) return;
+        }        if (!window.getGameRunning || !window.getGameRunning()) return;
         e.preventDefault();
         
-        switch(e.button) {
-            case 0: // Left click
+        // Handle user interaction for audio on any mouse click during gameplay
+        if (window.audioSystem) {
+            window.audioSystem.handleUserInteraction();
+        }
+        
+        switch(e.button) {            case 0: // Left click
+                // Check for harvester clicks first before turning
+                const rect = canvas.getBoundingClientRect();
+                const gameCoords = window.viewportManager.screenToGame(e.clientX, e.clientY);                if (window.harvesterSystem && isClickOnHarvester(gameCoords.x, gameCoords.y)) {
+                    // Let harvester system handle the click, don't turn
+                    window.harvesterSystem.handleClick(gameCoords.x, gameCoords.y);
+                    return;
+                }
+                
                 handleTurn();
                 break;
             case 2: // Right click
@@ -227,26 +287,41 @@ function setupInputHandlers() {
             });
         }
           inputState.lastInputTime = performance.now();
+          if (!window.getGameRunning || !window.getGameRunning()) return;
         
-        if (!window.getGameRunning || !window.getGameRunning()) return;
-        
-        // Single touch = turn
+        // Check for harvester touch first
         if (e.touches.length === 1) {
+            const touch = e.touches[0];
+            const gameCoords = window.viewportManager.screenToGame(touch.clientX, touch.clientY);
+            
+            if (window.harvesterSystem && isClickOnHarvester(gameCoords.x, gameCoords.y)) {
+                window.harvesterSystem.handleClick(gameCoords.x, gameCoords.y);
+                return;
+            }
+            
+            // Single touch = turn
             handleTurn();
         }
-        // Multi-touch = harvester
+        // Multi-touch = harvester drop
         else if (e.touches.length >= 2) {
             handleHarvesterDrop();
         }
     });
-    
-    canvas.addEventListener('touchmove', (e) => {
+      canvas.addEventListener('touchmove', (e) => {
         e.preventDefault();
         
         for (let touch of e.changedTouches) {
             if (inputState.touches.has(touch.identifier)) {
                 const gameCoords = window.viewportManager.screenToGame(touch.clientX, touch.clientY);
                 inputState.touches.get(touch.identifier).currentPos = gameCoords;
+                
+                // Update harvester position if carrying one and this is the primary touch
+                if (window.harvesterSystem && window.harvesterSystem.pickedUpHarvester && e.touches.length === 1) {
+                    window.harvesterSystem.mouseX = gameCoords.x;
+                    window.harvesterSystem.mouseY = gameCoords.y;
+                    window.harvesterSystem.pickedUpHarvester.x = gameCoords.x;
+                    window.harvesterSystem.pickedUpHarvester.y = gameCoords.y;
+                }
             }
         }
     });
@@ -425,8 +500,44 @@ function createScreenFlash(color, opacity, duration) {
         flashElement.style.opacity = '0';
         setTimeout(() => {
             document.body.removeChild(flashElement);
-        }, duration);
-    }, 50);
+        }, duration);    }, 50);
+}
+
+// ===== HARVESTER CLICK DETECTION =====
+function isClickOnHarvester(gameX, gameY) {
+    // Check if we're carrying a harvester (placement mode)
+    if (window.harvesterSystem && window.harvesterSystem.pickedUpHarvester) {
+        return true; // Always allow placement clicks
+    }
+    
+    // Check all placed harvesters for clicks
+    if (window.harvesterSystem && window.harvesterSystem.harvesters) {
+        for (const harvester of window.harvesterSystem.harvesters) {
+            const dx = gameX - harvester.x;
+            const dy = gameY - harvester.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Check if click is within harvester's clickable area (2x size for easier clicking)
+            if (distance <= harvester.size * 2) {
+                return true;
+            }
+        }
+    }
+    
+    // Check legacy harvesters array too
+    if (window.harvesters) {
+        for (const harvester of window.harvesters) {
+            const dx = gameX - harvester.x;
+            const dy = gameY - harvester.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance <= harvester.size * 2) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
 }
 
 // Export for global access

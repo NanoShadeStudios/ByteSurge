@@ -194,35 +194,54 @@ class Drone {
         const targetRotation = this.direction * Math.PI / 2;
         this.rotationAngle = this.rotationAngle + (targetRotation - this.rotationAngle) * 0.1;
     }
-    
-    updateTrail() {
+      updateTrail() {
         const distSq = (this.x - this.lastTrailPos.x) ** 2 + (this.y - this.lastTrailPos.y) ** 2;
         
-        if (distSq > this.trailSpacing ** 2) {
-            this.trail.push({
-                x: this.lastTrailPos.x,
-                y: this.lastTrailPos.y,
-                time: performance.now(),
-                alpha: 1.0
-            });
+        // Adjusted spacing for smoother trail
+        const adaptiveSpacing = Math.max(4, this.trailSpacing * (this.speed / this.baseSpeed));
+        
+        if (distSq > adaptiveSpacing ** 2) {
+            // Add interpolated points for ultra-smooth trail
+            const steps = Math.max(1, Math.floor(Math.sqrt(distSq) / adaptiveSpacing));
+            
+            for (let step = 1; step <= steps; step++) {
+                const t = step / steps;
+                const interpX = this.lastTrailPos.x + (this.x - this.lastTrailPos.x) * t;
+                const interpY = this.lastTrailPos.y + (this.y - this.lastTrailPos.y) * t;
+                
+                this.trail.push({
+                    x: interpX,
+                    y: interpY,
+                    time: performance.now(),
+                    alpha: 1.0,
+                    velocity: { x: this.x - this.lastTrailPos.x, y: this.y - this.lastTrailPos.y }
+                });
+            }
             
             this.lastTrailPos = { x: this.x, y: this.y };
             
-            // Limit trail length
-            if (this.trail.length > this.maxTrailLength) {
+            // Limit trail length with smoother removal
+            while (this.trail.length > this.maxTrailLength) {
                 this.trail.shift();
             }
         }
         
-        // Update trail alpha
+        // Enhanced trail alpha with smooth fade and wave effect
         const now = performance.now();
         this.trail.forEach((point, index) => {
             const age = now - point.time;
-            point.alpha = Math.max(0, 1 - age / 2000); // Fade over 2 seconds
+            const baseFade = Math.max(0, 1 - age / 1800); // Slightly longer fade time
+            
+            // Add subtle wave effect for more dynamic appearance
+            const wavePhase = (now * 0.003) + (index * 0.2);
+            const waveIntensity = 0.15;
+            const wave = 1 + Math.sin(wavePhase) * waveIntensity;
+            
+            point.alpha = baseFade * wave;
         });
         
         // Remove expired trail points
-        this.trail = this.trail.filter(point => point.alpha > 0);
+        this.trail = this.trail.filter(point => point.alpha > 0.05);
     }
     
     updateEngineParticles(deltaTime) {
@@ -382,28 +401,105 @@ class Drone {
         // Render status effects
         this.renderStatusEffects(ctx);
     }
-    
-    renderTrail(ctx) {
+      renderTrail(ctx) {
         if (this.trail.length < 2) return;
         
         ctx.save();
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
         
-        for (let i = 1; i < this.trail.length; i++) {
-            const prev = this.trail[i - 1];
-            const curr = this.trail[i];
+        // Enhanced smooth trail using quadratic curves
+        if (this.trail.length >= 3) {
+            // Render smooth curved trail
+            for (let i = 0; i < this.trail.length - 2; i++) {
+                const p0 = this.trail[i];
+                const p1 = this.trail[i + 1];
+                const p2 = this.trail[i + 2];
+                
+                // Calculate control point for smooth curve
+                const controlX = p1.x;
+                const controlY = p1.y;
+                const endX = (p1.x + p2.x) / 2;
+                const endY = (p1.y + p2.y) / 2;
+                
+                const alpha = p1.alpha * 0.9;
+                const progress = (i + 1) / this.trail.length;
+                const width = progress * 8 + 2; // Thicker, more dynamic width
+                
+                // Create gradient for trail segment
+                const gradient = ctx.createLinearGradient(p0.x, p0.y, endX, endY);
+                gradient.addColorStop(0, `rgba(0, 150, 255, ${alpha * 0.3})`);
+                gradient.addColorStop(0.5, `rgba(0, 200, 255, ${alpha * 0.7})`);
+                gradient.addColorStop(1, `rgba(100, 220, 255, ${alpha})`);
+                
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = width;
+                
+                ctx.beginPath();
+                if (i === 0) {
+                    ctx.moveTo(p0.x, p0.y);
+                }
+                ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+                ctx.stroke();
+                
+                // Add inner glow effect
+                ctx.strokeStyle = `rgba(200, 240, 255, ${alpha * 0.6})`;
+                ctx.lineWidth = width * 0.4;
+                ctx.beginPath();
+                if (i === 0) {
+                    ctx.moveTo(p0.x, p0.y);
+                }
+                ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+                ctx.stroke();
+            }
             
-            const alpha = curr.alpha * 0.8;
-            const width = (i / this.trail.length) * 6;
-            
-            ctx.strokeStyle = `rgba(0, 128, 255, ${alpha})`;
-            ctx.lineWidth = width;
-            
-            ctx.beginPath();
-            ctx.moveTo(prev.x, prev.y);
-            ctx.lineTo(curr.x, curr.y);
-            ctx.stroke();
+            // Connect to drone with final smooth segment
+            if (this.trail.length > 0) {
+                const lastPoint = this.trail[this.trail.length - 1];
+                const alpha = 1.0;
+                const width = 6;
+                
+                // Smooth connection to current drone position
+                const midX = (lastPoint.x + this.x) / 2;
+                const midY = (lastPoint.y + this.y) / 2;
+                
+                const gradient = ctx.createLinearGradient(lastPoint.x, lastPoint.y, this.x, this.y);
+                gradient.addColorStop(0, `rgba(100, 220, 255, ${alpha * 0.8})`);
+                gradient.addColorStop(1, `rgba(150, 240, 255, ${alpha})`);
+                
+                ctx.strokeStyle = gradient;
+                ctx.lineWidth = width;
+                
+                ctx.beginPath();
+                ctx.moveTo(lastPoint.x, lastPoint.y);
+                ctx.quadraticCurveTo(midX, midY, this.x, this.y);
+                ctx.stroke();
+                
+                // Inner glow for connection
+                ctx.strokeStyle = `rgba(220, 250, 255, ${alpha * 0.8})`;
+                ctx.lineWidth = width * 0.5;
+                ctx.beginPath();
+                ctx.moveTo(lastPoint.x, lastPoint.y);
+                ctx.quadraticCurveTo(midX, midY, this.x, this.y);
+                ctx.stroke();
+            }
+        } else {
+            // Fallback for simple trail with < 3 points
+            for (let i = 1; i < this.trail.length; i++) {
+                const prev = this.trail[i - 1];
+                const curr = this.trail[i];
+                
+                const alpha = curr.alpha * 0.8;
+                const width = (i / this.trail.length) * 6;
+                
+                ctx.strokeStyle = `rgba(0, 128, 255, ${alpha})`;
+                ctx.lineWidth = width;
+                
+                ctx.beginPath();
+                ctx.moveTo(prev.x, prev.y);
+                ctx.lineTo(curr.x, curr.y);
+                ctx.stroke();
+            }
         }
         
         ctx.restore();
