@@ -3,6 +3,7 @@
 
 // Firebase config (for auth and leaderboard - using shared-sign-in for both)
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: "AIzaSyCntr6vfF8UI04kKGPwhQBpj5lNIxVavNQ",
   authDomain: "bytesurge-716f8.firebaseapp.com",
@@ -13,7 +14,6 @@ const firebaseConfig = {
   appId: "1:196404297484:web:61727456d3ef62ca815329",
   measurementId: "G-25NRWWDKGC"
 };
-
 // Using the same config for both auth and leaderboard
 const leaderboardFirebaseConfig = firebaseConfig;
 

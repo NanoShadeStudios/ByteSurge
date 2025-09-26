@@ -470,15 +470,15 @@ let drone = null;
 function setupCanvas() {
     const rect = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-      // Base dimensions (expanded for better gameplay experience)
-    const baseWidth = 1200;
-    const baseHeight = 800;
+      // Use full viewport dimensions for fullscreen gameplay
+    const baseWidth = window.innerWidth;
+    const baseHeight = window.innerHeight;
     
     // Set actual canvas size with device pixel ratio for crisp rendering
     canvas.width = baseWidth * dpr;
     canvas.height = baseHeight * dpr;
     
-    // Set display size (CSS pixels)
+    // Set display size (CSS pixels) to full viewport
     canvas.style.width = baseWidth + 'px';
     canvas.style.height = baseHeight + 'px';
     
@@ -1272,6 +1272,12 @@ function startGame() {
       // Initialize energy node system
     if (window.EnergyNodeSystem) {
         window.energyNodes = window.EnergyNodeSystem.init();
+    }
+    
+    // Initialize corruption system
+    if (window.CorruptionSystem) {
+        window.corruptionSystem = window.CorruptionSystem.init();
+        ('🦠 Corruption system initialized');
     }
     
     // Initialize floating text system

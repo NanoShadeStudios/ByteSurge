@@ -432,5 +432,6 @@ function resetCorruptionZones() {
 }
 
 // Expose functions to global scope
+window.CorruptionSystem = CorruptionSystem;
 window.renderCorruptionZones = renderCorruptionZones;
 window.resetCorruptionZones = resetCorruptionZones;
