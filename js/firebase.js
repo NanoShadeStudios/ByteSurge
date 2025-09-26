@@ -22,10 +22,6 @@ let auth = null;
 let db = null;
 let app = null;
 
-// Using same app for both auth and leaderboard
-let leaderboardApp = null;
-let leaderboardDatabase = null;
-
 // Current user state
 let currentUser = null;
 let isSignedIn = false;
@@ -48,10 +44,28 @@ const firebaseSystem = {
             auth = firebase.auth();
             db = firebase.firestore();
             
-            // Use same app for leaderboard (now using shared-sign-in for everything)
-            leaderboardApp = app; // Same app
-            leaderboardDatabase = firebase.database(app);
-              
+            // Configure Firestore settings for better connectivity
+            try {
+                db.settings({
+                    cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
+                });
+                
+                // Enable offline persistence
+                await db.enablePersistence({
+                    synchronizeTabs: true
+                }).catch((err) => {
+                    if (err.code === 'failed-precondition') {
+                        console.warn('🔄 Multiple tabs open, persistence can only be enabled in one tab at a time');
+                    } else if (err.code === 'unimplemented') {
+                        console.warn('🌐 Browser doesn\'t support persistence');
+                    }
+                });
+                
+                console.log('✅ Firestore offline persistence enabled');
+            } catch (error) {
+                console.warn('⚠️ Firestore settings failed:', error.message);
+            }
+            
             // Set up auth state listener
             auth.onAuthStateChanged((user) => {
                 if (user) {
@@ -67,6 +81,9 @@ const firebaseSystem = {
                 }
             });
             
+            // Monitor Firestore connection state
+            this.setupConnectionMonitoring();
+            
             this.initialized = true;
              ('✅ Firebase initialized successfully');
             return true;
@@ -74,6 +91,28 @@ const firebaseSystem = {
             console.error('❌ Firebase initialization failed:', error);
             return false;
         }
+    },
+
+    // Setup connection monitoring for better error handling
+    setupConnectionMonitoring() {
+        if (!db) return;
+        
+        // Monitor Firestore connection by listening to a small document
+        const connectionRef = db.collection('system').doc('connection');
+        
+        // Use onSnapshot with error handling
+        connectionRef.onSnapshot(
+            (doc) => {
+                console.log('🌐 Firestore connection active');
+            },
+            (error) => {
+                if (error.code === 'unavailable') {
+                    console.warn('⚠️ Firestore temporarily unavailable - operating offline');
+                } else {
+                    console.warn('⚠️ Firestore connection issue:', error.code);
+                }
+            }
+        );
     },    // Sign in with Google
     async signInWithGoogle() {
         try {
@@ -212,66 +251,42 @@ const firebaseSystem = {
     },    // Update all existing leaderboard entries for the current user
     async updateLeaderboardDisplayName(newDisplayName) {
         try {
-            if (!currentUser || !leaderboardDatabase) {
-                 ('⚠️ Cannot update leaderboard - not signed in or database not available');
+            if (!currentUser || !db) {
+                 ('⚠️ Cannot update leaderboard - not signed in or Firestore not available');
                 return;
             }
 
-            // First, try to update the user's personal best score (this should always work)
+            // Update the user's personal best score in playerData collection
             try {
-                const userBestRef = leaderboardDatabase.ref(`playerData/${currentUser.uid}/bestScore`);
-                const bestSnapshot = await userBestRef.once('value');
-                if (bestSnapshot.exists()) {
-                    await userBestRef.child('displayName').set(newDisplayName);
-                     ('✅ Updated personal best score display name');
-                }
+                const userDocRef = db.collection('playerData').doc(currentUser.uid);
+                await userDocRef.update({
+                    displayName: newDisplayName
+                });
+                 ('✅ Updated personal best score display name');
             } catch (error) {
                  ('⚠️ Could not update personal best score:', error.message);
             }
 
-            // For the main leaderboard, try to update entries individually
-            // This approach works better with restrictive Firebase rules
+            // Update all leaderboard entries for this user using batch writes
             try {
-                const leaderboardRef = leaderboardDatabase.ref('leaderboard');
-                const snapshot = await leaderboardRef.orderByChild('userId').equalTo(currentUser.uid).once('value');
+                const leaderboardQuery = db.collection('leaderboard').where('userId', '==', currentUser.uid);
+                const querySnapshot = await leaderboardQuery.get();
                 
-                if (!snapshot.exists()) {
+                if (querySnapshot.empty) {
                      ('ℹ️ No existing leaderboard entries found for user');
                     return;
                 }
 
-                let successCount = 0;
-                let totalCount = 0;
-                const updatePromises = [];
+                const batch = db.batch();
+                let updateCount = 0;
 
-                // Update each entry individually
-                snapshot.forEach((childSnapshot) => {
-                    totalCount++;
-                    const entryKey = childSnapshot.key;
-                    const entryData = childSnapshot.val();
-                    
-                    // Only update if this entry actually belongs to the current user
-                    if (entryData.userId === currentUser.uid) {
-                        const updatePromise = leaderboardRef.child(entryKey).child('displayName').set(newDisplayName)
-                            .then(() => {
-                                successCount++;
-                            })
-                            .catch((error) => {
-                                 (`⚠️ Could not update entry ${entryKey}:`, error.message);
-                            });
-                        updatePromises.push(updatePromise);
-                    }
+                querySnapshot.forEach(doc => {
+                    batch.update(doc.ref, { displayName: newDisplayName });
+                    updateCount++;
                 });
 
-                // Wait for all updates to complete
-                await Promise.all(updatePromises);
-                
-                if (successCount > 0) {
-                     (`🏆 Successfully updated ${successCount}/${totalCount} leaderboard entries with new display name: "${newDisplayName}"`);
-                } else if (totalCount > 0) {
-                     (`⚠️ Could not update any of the ${totalCount} leaderboard entries due to permissions`);
-                     ('💡 Note: Your new display name will be used for future score submissions');
-                }
+                await batch.commit();
+                 (`🏆 Successfully updated ${updateCount} leaderboard entries with new display name: "${newDisplayName}"`);
 
             } catch (error) {
                  ('⚠️ Could not access leaderboard entries:', error.message);
@@ -356,8 +371,10 @@ const firebaseSystem = {
 
 // Cloud Save System
 const cloudSaveSystem = {
-      // Save game data to cloud
-    async saveToCloud(gameData) {
+    retryAttempts: 3,
+    
+    // Save game data to cloud with retry logic
+    async saveToCloud(gameData, attempt = 1) {
         if (!isSignedIn || !currentUser) {
              ('⚠️ Not signed in - cannot save to cloud');
             return false;
@@ -380,9 +397,20 @@ const cloudSaveSystem = {
             await db.collection('playerData').doc(currentUser.uid).set(userData, { merge: true });
              ('☁️ Game data saved to cloud');            return true;
         } catch (error) {
-            // Handle specific Firebase errors
+            // Handle specific Firebase errors with retry logic
             if (error.code === 'unavailable' || error.code === 'failed-precondition') {
-                 ('⚠️ Firebase temporarily unavailable - save will retry later');
+                if (attempt < this.retryAttempts) {
+                    const delay = Math.pow(2, attempt) * 1000; // Exponential backoff
+                    console.warn(`⚠️ Firebase unavailable - retrying in ${delay/1000}s (attempt ${attempt}/${this.retryAttempts})`);
+                    
+                    return new Promise(resolve => {
+                        setTimeout(() => {
+                            resolve(this.saveToCloud(gameData, attempt + 1));
+                        }, delay);
+                    });
+                } else {
+                    console.warn('⚠️ Max retry attempts reached - save failed');
+                }
             } else if (error.code === 'permission-denied') {
                  ('⚠️ Permission denied - check Firebase rules');
             } else {
@@ -494,7 +522,7 @@ const cloudSaveSystem = {
     }
 };
 
-// Leaderboard System (uses Realtime Database)
+// Leaderboard System (uses Firestore)
 const leaderboardSystem = {
       // Submit score to leaderboard
     async submitScore(score, distance, zone) {
@@ -524,7 +552,7 @@ const leaderboardSystem = {
                 score: Math.floor(score), // Ensure integer
                 distance: Math.floor(distance), // Ensure integer
                 zone: Math.floor(zone), // Ensure integer
-                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 userId: currentUser.uid,
                 displayName: currentUser.displayName || currentUser.email || 'Anonymous',
                 photoURL: currentUser.photoURL || null
@@ -532,17 +560,18 @@ const leaderboardSystem = {
             
              ('📊 Score data being submitted:', scoreData);
             
-            // Add to leaderboard (using Realtime Database)
-            const leaderboardRef = leaderboardDatabase.ref('leaderboard');
-            await leaderboardRef.push(scoreData);
-              // Update user's best distance in leaderboard database
-            const userRef = leaderboardDatabase.ref(`playerData/${currentUser.uid}/bestScore`);
-            const userSnapshot = await userRef.once('value');
-            const currentBest = userSnapshot.val();
+            // Add to leaderboard collection in Firestore
+            await db.collection('leaderboard').add(scoreData);
+              // Update user's best distance in playerData collection
+            const userDocRef = db.collection('playerData').doc(currentUser.uid);
+            const userDoc = await userDocRef.get();
+            const currentBest = userDoc.exists ? userDoc.data().bestScore : null;
             
             // Compare by distance instead of score
             if (!currentBest || distance > (currentBest.distance || 0)) {
-                await userRef.set(scoreData);
+                await userDocRef.set({
+                    bestScore: scoreData
+                }, { merge: true });
             }
             
              ('🏆 Score submitted to leaderboard:', score);
@@ -579,7 +608,7 @@ const leaderboardSystem = {
                 score: Math.floor(score), // Ensure integer
                 distance: Math.floor(distance), // Ensure integer
                 zone: Math.floor(zone), // Ensure integer
-                timestamp: firebase.database.ServerValue.TIMESTAMP,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 userId: currentUser.uid,
                 displayName: currentUser.displayName || currentUser.email || 'Anonymous',
                 photoURL: currentUser.photoURL || null,
@@ -588,9 +617,8 @@ const leaderboardSystem = {
             
              ('📊 Manual score data being submitted:', scoreData);
             
-            // Add to leaderboard (using Realtime Database)
-            const leaderboardRef = leaderboardDatabase.ref('leaderboard');
-            await leaderboardRef.push(scoreData);
+            // Add to leaderboard collection in Firestore
+            await db.collection('leaderboard').add(scoreData);
             
              ('🏆 Score manually submitted to leaderboard:', score);
             return true;
@@ -655,9 +683,9 @@ const leaderboardSystem = {
     async isPersonalHighScore(score, distance) {
         if (!isSignedIn || !currentUser) return false;        
         try {
-            const userRef = leaderboardDatabase.ref(`playerData/${currentUser.uid}/bestScore`);
-            const userSnapshot = await userRef.once('value');
-            const userBest = userSnapshot.val();
+            const userDocRef = db.collection('playerData').doc(currentUser.uid);
+            const userDoc = await userDocRef.get();
+            const userBest = userDoc.exists ? userDoc.data().bestScore : null;
             
             if (!userBest) {
                 return true; // First score is always a personal best
