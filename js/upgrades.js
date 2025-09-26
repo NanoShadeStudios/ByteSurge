@@ -30,7 +30,7 @@ window.upgradeSystem = {
             baseCost: 25,
             costMultiplier: 1.5,
             effect: 'speed',
-            icon: '⚡',
+            icon: '',
             color: '#00ffff'
         },
         {
@@ -42,7 +42,7 @@ window.upgradeSystem = {
             baseCost: 30,
             costMultiplier: 1.6,
             effect: 'harvesterSpeed',
-            icon: '🏭',
+            icon: '',
             color: '#00ff00'
         },
         {
@@ -54,7 +54,7 @@ window.upgradeSystem = {
             baseCost: 100,
             costMultiplier: 2.0,
             effect: 'maxHarvesters',
-            icon: '📈',
+            icon: '',
             color: '#ffaa00'
         },
         {
@@ -66,7 +66,7 @@ window.upgradeSystem = {
             baseCost: 75,
             costMultiplier: 1.8,
             effect: 'turning',
-            icon: '🎯',
+            icon: '',
             color: '#aa44ff'
         },
         {
@@ -78,7 +78,7 @@ window.upgradeSystem = {
             baseCost: 150,
             costMultiplier: 2.2,
             effect: 'detection',
-            icon: '📡',
+            icon: '',
             color: '#ff4444'
         }
     ],

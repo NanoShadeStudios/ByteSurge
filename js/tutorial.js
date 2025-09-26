@@ -24,11 +24,11 @@ class TutorialSystem {    constructor(canvas, ctx) {
             {
                 title: "Basic Controls",
                 text: [
-                    "🎮 MOVEMENT:",
+                    "MOVEMENT:",
                     "• Use WASD or Arrow Keys to turn your drone",
                     "• SPACE BAR also turns your drone",
                     "",
-                    "⚡ ENERGY COLLECTION:",
+                    "ENERGY COLLECTION:",
                     "• Move over blue energy nodes to collect them",
                     "• Energy is used to deploy harvesters and buy upgrades"
                 ]
@@ -36,34 +36,34 @@ class TutorialSystem {    constructor(canvas, ctx) {
             {
                 title: "Harvesters",
                 text: [
-                    "🏭 AUTOMATED HARVESTERS:",
+                    "AUTOMATED HARVESTERS:",
                     "• Press H to deploy a harvester at your location",
                     "• Harvesters automatically collect nearby energy",
                     "• They continue working even when you're away!",
                     "",
-                    "💡 TIP: Place harvesters in energy-rich areas"
+                    "TIP: Place harvesters in energy-rich areas"
                 ]
             },
             {
                 title: "Corruption Zones",
                 text: [
-                    "☠️ DANGER ZONES:",
+                    "DANGER ZONES:",
                     "• Red corruption zones will damage your drone",
                     "• Avoid these areas or move through them quickly",
                     "• Corruption spreads and evolves over time",
                     "",
-                    "⚠️ WARNING: Touching corruption ends the game!"
+                    "WARNING: Touching corruption ends the game!"
                 ]
             },
             {
                 title: "Game Features",
                 text: [
-                    "🎯 OBJECTIVE:",
+                    "OBJECTIVE:",
                     "• Survive as long as possible",
                     "• Collect energy and deploy harvesters",
                     "• Travel the maximum distance",
                     "",
-                    "📊 ADDITIONAL FEATURES:",
+                    "ADDITIONAL FEATURES:",
                     "• Press P to pause the game",
                     "• Press U for upgrades menu",
                     "• Your progress is automatically saved"
@@ -72,7 +72,7 @@ class TutorialSystem {    constructor(canvas, ctx) {
             {
                 title: "Ready to Play!",
                 text: [
-                    "🚀 You're all set!",
+                    "You're all set!",
                     "",
                     "Remember:",
                     "• Collect energy nodes (blue)",
@@ -85,7 +85,7 @@ class TutorialSystem {    constructor(canvas, ctx) {
             }
         ];
         
-        console.log('📖 Tutorial System initialized');
+        console.log('Tutorial System initialized');
     }
 
     start() {
@@ -93,17 +93,17 @@ class TutorialSystem {    constructor(canvas, ctx) {
         const existingModal = document.getElementById('tutorial-modal-overlay');
         if (existingModal) {
             existingModal.remove();
-            console.log('🧹 Removed existing tutorial modal');
+            console.log('Removed existing tutorial modal');
         }
         
         this.isActive = true;
         this.currentStep = 0;
         this.showTutorialModal();
-        console.log('📖 Tutorial started - modal should be visible now');
+        console.log('Tutorial started - modal should be visible now');
     }
 
     showTutorialModal() {
-        console.log('🎯 showTutorialModal called - currentStep:', this.currentStep, 'total steps:', this.steps.length);
+        console.log('showTutorialModal called - currentStep:', this.currentStep, 'total steps:', this.steps.length);
         
         if (this.currentStep >= this.steps.length) {
             this.complete();
@@ -113,13 +113,13 @@ class TutorialSystem {    constructor(canvas, ctx) {
         const step = this.steps[this.currentStep];
         const isLastStep = this.currentStep === this.steps.length - 1;
         
-        console.log('📋 Creating tutorial modal for step:', step.title);
+        console.log('Creating tutorial modal for step:', step.title);
         
         // Remove any existing modal first
         const existingModal = document.getElementById('tutorial-modal-overlay');
         if (existingModal) {
             existingModal.remove();
-            console.log('🧹 Removed existing tutorial modal overlay');
+            console.log('Removed existing tutorial modal overlay');
         }
 
         // Create modal overlay
