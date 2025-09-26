@@ -44,24 +44,8 @@ const firebaseSystem = {
             auth = firebase.auth();
             db = firebase.firestore();
             
-            // Enable offline persistence (this is the main feature we want)
-            try {
-                await db.enablePersistence({
-                    synchronizeTabs: true
-                }).catch((err) => {
-                    if (err.code === 'failed-precondition') {
-                        console.warn('🔄 Multiple tabs open, persistence can only be enabled in one tab at a time');
-                    } else if (err.code === 'unimplemented') {
-                        console.warn('🌐 Browser doesn\'t support offline persistence');
-                    } else {
-                        console.warn('⚠️ Persistence setup issue:', err.code);
-                    }
-                });
-                
-                console.log('✅ Firestore initialized with offline support');
-            } catch (error) {
-                console.warn('⚠️ Firestore offline persistence failed (continuing anyway):', error.message);
-            }
+            // Simple initialization - let Firebase handle caching automatically
+            console.log('✅ Firestore initialized successfully');
             
             // Set up auth state listener
             auth.onAuthStateChanged((user) => {
