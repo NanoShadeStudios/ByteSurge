@@ -142,8 +142,7 @@ class Harvester {
         if (Math.random() < 0.1 && this.particles.length < this.maxParticles) {
             this.spawnEnergyParticle();
         }
-    }
-      generateEnergy() {
+    }      generateEnergy() {
         // Don't generate energy if jammed
         if (this.isJammed) {
             return;
@@ -158,17 +157,35 @@ class Harvester {
             // Visual feedback - brief glow
             this.glowIntensity = 1.5;
             
+            // Create floating text for harvester generation
+            if (window.FloatingTextSystem) {
+                const displayValue = this.energyGenerationRate.toFixed(1);
+                const text = `+${displayValue} H`;
+                
+                // Use harvester green color with slight transparency
+                const textColor = '#00ff88';
+                
+                // Create floating text at harvester position with slight randomization
+                const offsetX = (Math.random() - 0.5) * 15;
+                const offsetY = (Math.random() - 0.5) * 15;
+                window.FloatingTextSystem.createFloatingText(
+                    this.x + offsetX, 
+                    this.y + offsetY - 10, // Slightly above harvester
+                    text, 
+                    textColor, 
+                    1200 // Shorter duration for harvester text
+                );
+            }
+            
             // Spawn generation particles
             for (let i = 0; i < 3; i++) {
                 this.spawnEnergyParticle();
             }
             
-            // Create screen flash for harvester generation
-            if (window.createScreenFlash) {
-                window.createScreenFlash('#00ff00', 0.05, 80);
-            }
-            
-            console.log(`🏭 Harvester generated +${this.energyGenerationRate} energy! Total: ${this.totalEnergyGenerated}`);
+            // Remove screen flash for harvester generation for cleaner experience
+            // if (window.createScreenFlash) {
+            //     window.createScreenFlash('#00ff00', 0.05, 80);
+            // }
         }
     }
     

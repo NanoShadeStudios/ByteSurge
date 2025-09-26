@@ -24,7 +24,7 @@ class HomeScreen {
         this.backgroundParticles = [];
         this.initBackgroundParticles();
         
-        console.log('🏠 Home Screen initialized');
+        console.log('Home Screen initialized');
     }
       initBackgroundParticles() {
         this.backgroundParticles = [];

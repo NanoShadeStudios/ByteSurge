@@ -47,7 +47,7 @@ let settingsSystem = {
     categories: [
         {
             name: 'Display',
-            icon: '🖥️',
+            icon: '',
             settings: [
                 { key: 'skipOpeningAnimation', name: 'Skip Opening Animation', type: 'boolean', description: 'Skip the studio/game intro animation' },
                 { key: 'fullscreenOnStart', name: 'Fullscreen on Start', type: 'boolean', description: 'Start game in fullscreen mode' },
@@ -56,7 +56,7 @@ let settingsSystem = {
             ]
         },        {
             name: 'Audio',
-            icon: '🔊',
+            icon: '',
             settings: [
                 { key: 'masterVolume', name: 'Master Volume', type: 'number', min: 0, max: 100, step: 1, description: 'Overall audio volume (0-100)' },
                 { key: 'musicVolume', name: 'Music Volume', type: 'number', min: 0, max: 100, step: 1, description: 'Background music volume (0-100)' },
@@ -66,7 +66,7 @@ let settingsSystem = {
         },
         {
             name: 'Gameplay',
-            icon: '🎮',
+            icon: '',
             settings: [
                 { key: 'autoTurnAssist', name: 'Auto-Turn Assist', type: 'boolean', description: 'Smoother drone turning' },
                 { key: 'vibrationEnabled', name: 'Vibration Feedback', type: 'boolean', description: 'Controller/phone vibration' },
@@ -75,7 +75,7 @@ let settingsSystem = {
         },
         {
             name: 'Controls',
-            icon: '⌨️',
+            icon: '',
             settings: [
                 { key: 'invertMouseY', name: 'Invert Mouse Y', type: 'boolean', description: 'Reverse vertical mouse movement' },
                 { key: 'mouseSensitivity', name: 'Mouse Sensitivity', type: 'slider', min: 0.1, max: 3.0, step: 0.1, description: 'Mouse movement sensitivity' },
@@ -84,7 +84,7 @@ let settingsSystem = {
         },
         {
             name: 'Performance',
-            icon: '⚡',
+            icon: '',
             settings: [
                 { key: 'targetFPS', name: 'Target FPS', type: 'select', options: [30, 60, 120, 144], description: 'Preferred frame rate' },
                 { key: 'vSync', name: 'V-Sync', type: 'boolean', description: 'Synchronize with display refresh' },
@@ -93,7 +93,7 @@ let settingsSystem = {
         },
         {
             name: 'Accessibility',
-            icon: '♿',
+            icon: '',
             settings: [
                 { key: 'highContrast', name: 'High Contrast', type: 'boolean', description: 'Increase color contrast' },
                 { key: 'largeText', name: 'Large Text', type: 'boolean', description: 'Increase text size' },
@@ -109,10 +109,8 @@ let settingsSystem = {
       // Set setting value and apply immediately
     setSetting(key, value) {
         const oldValue = gameSettings[key];
-        console.log('⚙️ setSetting called:', key, 'old:', oldValue, 'new:', value);
         
         gameSettings[key] = value;
-        console.log('⚙️ gameSettings updated:', key, '=', gameSettings[key]);
         
         this.applySetting(key, value);
         this.saveSettings();
@@ -120,9 +118,7 @@ let settingsSystem = {
         // Verify the value stuck
         setTimeout(() => {
             const currentValue = gameSettings[key];
-            console.log('⚙️ Setting verification after save:', key, '=', currentValue);
             if (currentValue !== value) {
-                console.error('❌ Setting was reverted!', key, 'expected:', value, 'actual:', currentValue);
             }
         }, 100);
     },
@@ -193,19 +189,14 @@ let settingsSystem = {
     saveSettings() {
         try {
             const settingsString = JSON.stringify(gameSettings);
-            console.log('⚙️ Saving settings to localStorage:', settingsString.substring(0, 100) + '...');
             localStorage.setItem('bytesurge_settings', settingsString);
-            console.log('⚙️ Settings saved successfully');
             
             // Verify save worked
             const saved = localStorage.getItem('bytesurge_settings');
             if (saved) {
-                console.log('⚙️ Verified localStorage save');
             } else {
-                console.error('❌ localStorage save failed!');
             }
         } catch (e) {
-            console.error('❌ Failed to save settings:', e);
         }
     },
     
@@ -224,18 +215,15 @@ let settingsSystem = {
                         if ((key === 'masterVolume' || key === 'musicVolume' || key === 'sfxVolume') && 
                             typeof value === 'number' && value <= 1.0) {
                             value = Math.round(value * 100);
-                            console.log('⚙️ Migrated', key, 'from', parsed[key], 'to', value);
                         }
                         
                         gameSettings[key] = value;
                     }
                 });
                 
-                console.log('⚙️ Settings loaded');
                 this.applyAllSettings();
             }
         } catch (e) {
-            console.error('❌ Failed to load settings:', e);
         }
     },
       // Reset settings to defaults
@@ -318,7 +306,7 @@ let settingsMenuUI = {
         
         this.panelBounds = { x: panelX, y: panelY, width: panelWidth, height: panelHeight };
         
-        console.log('⚙️ Calculating bounds with game dimensions:', gameWidth, 'x', gameHeight, 'Panel:', this.panelBounds);
+
         
         // Calculate category bounds (left side)
         this.categoryBounds = [];
@@ -337,14 +325,14 @@ let settingsMenuUI = {
         this.settingBounds = [];
         this.valueBounds = [];
         const settingStartY = panelY + 80;
-        const settingHeight = 35;        console.log('⚙️ Selected category:', this.selectedCategory, 'Total categories:', settingsSystem.categories.length);
+        const settingHeight = 35;        
         
         if (settingsSystem.categories[this.selectedCategory]) {
             const selectedCategory = settingsSystem.categories[this.selectedCategory];
-            console.log('⚙️ Category found:', selectedCategory.name, 'with', selectedCategory.settings.length, 'settings');
+            
             
             selectedCategory.settings.forEach((setting, index) => {
-                console.log('⚙️ Processing setting', index, ':', setting.name, 'type:', setting.type);
+    
                 
                 // For number types, make setting bounds smaller to leave room for value area
                 const settingWidth = setting.type === 'number' ? 
@@ -370,14 +358,13 @@ let settingsMenuUI = {
                         setting: setting
                     };
                     this.valueBounds.push(valueBounds);
-                    console.log('⚙️ Added value bounds for', setting.name, ':', valueBounds);
                 }
             });
         } else {
-            console.log('❌ No category found at index:', this.selectedCategory);
+        
         }
         
-        console.log('⚙️ Final value bounds count:', this.valueBounds.length);
+    
     },
     
     // Update mouse position and hover state
@@ -417,17 +404,16 @@ let settingsMenuUI = {
         // Debounce rapid clicks
         const now = Date.now();
         if (now - this.lastClickTime < 200) {
-            console.log('⚙️ Click debounced');
             return true;
         }
         this.lastClickTime = now;
         
-        console.log('⚙️ Settings menu click at:', x, y, 'Panel bounds:', this.panelBounds);
+        
         
         // Check if click is outside panel
         if (x < this.panelBounds.x || x > this.panelBounds.x + this.panelBounds.width ||
             y < this.panelBounds.y || y > this.panelBounds.y + this.panelBounds.height) {
-            console.log('⚙️ Click outside panel, closing menu');
+           
             this.closeMenu();
             return true;
         }
@@ -435,19 +421,19 @@ let settingsMenuUI = {
         // Check category clicks
         for (let bounds of this.categoryBounds) {
             if (x >= bounds.x && x <= bounds.x + bounds.width &&
-                y >= bounds.y && y <= bounds.y + bounds.height) {                console.log('⚙️ Category clicked:', bounds.index);
+                y >= bounds.y && y <= bounds.y + bounds.height) {                
                 this.selectedCategory = bounds.index;
                 this.calculateBounds(); // Recalculate setting bounds
                 return true;
             }        }
         
         // Check value area clicks (for inline editing) - check this FIRST
-        console.log('⚙️ Checking value bounds:', this.valueBounds.length, 'value areas');
+        
         for (let bounds of this.valueBounds) {
-            console.log('⚙️ Value bounds check:', bounds.index, 'x:', x, 'in', bounds.x, '-', bounds.x + bounds.width, 'y:', y, 'in', bounds.y, '-', bounds.y + bounds.height);
+            
             if (x >= bounds.x && x <= bounds.x + bounds.width &&
                 y >= bounds.y && y <= bounds.y + bounds.height) {
-                console.log('⚙️ Value clicked for editing:', bounds.index, 'setting:', bounds.setting.name);
+                
                 this.startInlineEdit(bounds.index, bounds.setting);
                 return true;
             }
@@ -457,13 +443,13 @@ let settingsMenuUI = {
         for (let bounds of this.settingBounds) {
             if (x >= bounds.x && x <= bounds.x + bounds.width &&
                 y >= bounds.y && y <= bounds.y + bounds.height) {
-                console.log('⚙️ Setting clicked:', bounds.index, 'at bounds:', bounds);
+               
                 this.toggleSetting(bounds.index);
                 return true;
             }
         }
         
-        console.log('⚙️ Click inside panel but no hit');
+        
         return false;
     },
     
@@ -477,7 +463,7 @@ let settingsMenuUI = {
         };
         this.editingInput = currentValue.toString();
         this.editingBlinkTime = 0;
-        console.log('⚙️ Started inline edit for:', setting.name, 'current value:', currentValue);
+        
     },
     
     // Stop inline editing
@@ -489,7 +475,7 @@ let settingsMenuUI = {
             const setting = this.editingValue.setting;
             
             if (!isNaN(numValue) && numValue >= setting.min && numValue <= setting.max) {
-                console.log('⚙️ Saving inline edit:', setting.name, 'new value:', numValue);
+
                 settingsSystem.setSetting(setting.key, numValue);
                 
                 // Visual feedback
@@ -497,7 +483,7 @@ let settingsMenuUI = {
                     window.createScreenFlash('#00ffff', 0.1, 100);
                 }
             } else {
-                console.log('❌ Invalid inline edit value:', this.editingInput, 'range:', setting.min, '-', setting.max);
+                
             }
         }
         
@@ -507,20 +493,20 @@ let settingsMenuUI = {
     toggleSetting(settingIndex) {
         const category = settingsSystem.categories[this.selectedCategory];
         if (!category || !category.settings[settingIndex]) {
-            console.log('❌ Invalid setting index:', settingIndex);
+            
             return;
         }
         
         const setting = category.settings[settingIndex];
         const currentValue = settingsSystem.getSetting(setting.key);
         
-        console.log('⚙️ Toggling setting:', setting.name, 'from', currentValue, 'key:', setting.key);
+        
         
         let newValue;
         switch (setting.type) {
             case 'boolean':
                 newValue = !currentValue;
-                console.log('⚙️ Boolean toggle:', currentValue, '->', newValue);
+                
                 break;
                 
             case 'select':
@@ -528,7 +514,7 @@ let settingsMenuUI = {
                 const currentIndex = options.indexOf(currentValue);
                 const nextIndex = (currentIndex + 1) % options.length;
                 newValue = options[nextIndex];
-                console.log('⚙️ Select change:', currentValue, '->', newValue, 'options:', options);
+                
                 break;
                   case 'slider':
                 // For now, just increment by step (could add drag support later)
@@ -536,16 +522,16 @@ let settingsMenuUI = {
                 if (newValue > setting.max) {
                     newValue = setting.min; // Wrap around
                 }
-                console.log('⚙️ Slider change:', currentValue, '->', newValue, 'range:', setting.min, '-', setting.max);
+               
                 break;
                 
             case 'number':
                 // Number types are handled by inline editing, not toggle
-                console.log('⚙️ Number type clicked - should use inline editing instead');
+                
                 return;
                 
             default:
-                console.log('❌ Unknown setting type:', setting.type);
+                
                 return;
         }
         
@@ -554,10 +540,10 @@ let settingsMenuUI = {
         
         // Verify the change was applied
         const verifyValue = settingsSystem.getSetting(setting.key);
-        console.log('⚙️ Setting verification:', setting.key, 'set to:', newValue, 'current value:', verifyValue);
+        
         
         if (verifyValue !== newValue) {
-            console.error('❌ Setting change failed! Expected:', newValue, 'Got:', verifyValue);
+            
         }
         
         // Visual feedback
@@ -927,7 +913,7 @@ let customInputDialog = {
         this.bounds.x = (gameWidth - this.bounds.width) / 2;
         this.bounds.y = (gameHeight - this.bounds.height) / 2;
         
-        console.log('🔢 Custom input dialog opened:', title);
+        
     },
     
     // Close the dialog
@@ -935,7 +921,7 @@ let customInputDialog = {
         this.isOpen = false;
         this.callback = null;
         this.inputValue = '';
-        console.log('🔢 Custom input dialog closed');
+       
     },
     
     // Handle key input for the dialog
@@ -1010,7 +996,7 @@ let customInputDialog = {
             }
             this.close();
         } else {
-            console.log('❌ Invalid input value:', this.inputValue);
+        
             // Could add visual feedback here
         }
     },
@@ -1125,9 +1111,7 @@ function shouldSkipOpeningAnimation() {
 }
 
 // Initialize settings system
-console.log('⚙️ Initializing settings system...');
 settingsSystem.loadSettings();
-console.log('⚙️ Settings system initialized');
 
 // Export for global access
 window.gameSettings = gameSettings;

@@ -17,7 +17,7 @@ function loadSprites() {
             loadedCount++;
             if (loadedCount === sprites.toLoad) {
                 sprites.loaded = true;
-                console.log('✅ All sprites loaded successfully');
+                ('✅ All sprites loaded successfully');
                 resolve();
             }
         }
@@ -515,7 +515,7 @@ function togglePause() {
 }
 
 function resetGame(goToHomeScreen = false) {
-    console.log('🔄 Resetting game state...');
+    ('🔄 Resetting game state...');
       // Stop the game immediately to prevent rendering conflicts
     gameRunning = false;
     
@@ -606,7 +606,7 @@ function returnToHomeScreen() {
     // Initialize tutorial system if not already done
     if (!window.tutorialSystem && window.TutorialSystem) {
         window.tutorialSystem = new window.TutorialSystem(canvas, ctx);
-        console.log('📚 Tutorial system initialized from opening animation transition');
+        ('📚 Tutorial system initialized from opening animation transition');
     }
     
   
@@ -616,7 +616,7 @@ let isDeathScreenShowing = false; // Add state tracking
 let isDeathTransitioning = false; // Track death transition state
 
 function handleGameOver() {
-    console.log('☠️ handleGameOver called - current states:', {
+    ('☠️ handleGameOver called - current states:', {
         isDeathScreenShowing,
         isDeathTransitioning,
         gameRunning
@@ -624,7 +624,7 @@ function handleGameOver() {
     
     // Prevent multiple death screens
     if (isDeathScreenShowing || isDeathTransitioning) {
-        console.log('⚠️ Death process already in progress, skipping');
+        ('⚠️ Death process already in progress, skipping');
         return;
     }
     
@@ -634,10 +634,10 @@ function handleGameOver() {
 
 // Smooth death transition with drone zoom-in
 function startDeathTransition() {
-    console.log('🎬 startDeathTransition called');
+    ('🎬 startDeathTransition called');
     
     if (isDeathScreenShowing || isDeathTransitioning) {
-        console.log('⚠️ Death transition already in progress, skipping');
+        ('⚠️ Death transition already in progress, skipping');
         return;
     }
     
@@ -646,7 +646,7 @@ function startDeathTransition() {
     existingOverlays.forEach(overlay => {
         if (overlay.parentNode) {
             overlay.parentNode.removeChild(overlay);
-            console.log('🧹 Cleaned up death screen before transition');
+            ('🧹 Cleaned up death screen before transition');
         }
     });
     
@@ -733,19 +733,19 @@ function startDeathTransition() {
 }
 
 function showDeathScreen() {
-    console.log('💀 showDeathScreen called - isShowing:', isDeathScreenShowing, 'isTransitioning:', isDeathTransitioning);
+    ('💀 showDeathScreen called - isShowing:', isDeathScreenShowing, 'isTransitioning:', isDeathTransitioning);
     
     // NUCLEAR CLEANUP - Remove ALL possible death-related elements
     document.querySelectorAll('[id*="death"], [class*="death"], #death-screen-overlay').forEach(el => {
         if (el.parentNode) {
             el.parentNode.removeChild(el);
-            console.log('🧹 Removed death-related element:', el.id || el.className);
+            ('🧹 Removed death-related element:', el.id || el.className);
         }
     });
     
     // Prevent multiple death screens
     if (isDeathScreenShowing) {
-        console.log('⚠️ Death screen already showing, skipping');
+        ('⚠️ Death screen already showing, skipping');
         return;
     }
     
@@ -972,9 +972,9 @@ function showDeathScreen() {
     const uploadScoreBtn = document.getElementById('death-upload-score');
     const homeBtn = document.getElementById('death-home');
     
-    console.log('Death screen buttons found:', { restartBtn, upgradesBtn, leaderboardBtn, uploadScoreBtn, homeBtn });    if (restartBtn) {
+    ('Death screen buttons found:', { restartBtn, upgradesBtn, leaderboardBtn, uploadScoreBtn, homeBtn });    if (restartBtn) {
         restartBtn.addEventListener('click', (e) => {
-            console.log('� SMART RESTART - Loading screen approach');
+            ('� SMART RESTART - Loading screen approach');
             e.preventDefault();
             e.stopPropagation();
             
@@ -994,7 +994,7 @@ function showDeathScreen() {
     
     if (upgradesBtn) {
         upgradesBtn.addEventListener('click', (e) => {
-            console.log('Upgrades button clicked');
+            ('Upgrades button clicked');
             e.preventDefault();
             e.stopPropagation();
             
@@ -1011,14 +1011,14 @@ function showDeathScreen() {
             
             // Open upgrade menu
             if (window.upgradeMenuUI && window.upgradeMenuUI.openMenu) {
-                console.log('Opening upgrade menu over death screen...');
+                ('Opening upgrade menu over death screen...');
                 window.upgradeMenuUI.openMenu();
                 
                 // Store state to restore when upgrade menu closes
                 window.upgradeMenuUI.deathScreenActive = true;
                 window.upgradeMenuUI.wasGameRunning = wasGameRunning;
                 window.upgradeMenuUI.deathScreenOverlay = deathScreenOverlay;            } else {
-                console.log('Upgrade menu not found, trying alternative...');
+                ('Upgrade menu not found, trying alternative...');
                 if (window.upgradeSystem) {
                     window.upgradeSystem.isMenuOpen = true;
                 }
@@ -1026,7 +1026,7 @@ function showDeathScreen() {
         });
     }    if (leaderboardBtn) {
         leaderboardBtn.addEventListener('click', (e) => {
-            console.log('Leaderboard button clicked');
+            ('Leaderboard button clicked');
             e.preventDefault();
             e.stopPropagation();
             
@@ -1044,7 +1044,7 @@ function showDeathScreen() {
 
     if (uploadScoreBtn) {
         uploadScoreBtn.addEventListener('click', (e) => {
-            console.log('Upload Score button clicked');
+            ('Upload Score button clicked');
             e.preventDefault();
             e.stopPropagation();
             
@@ -1103,7 +1103,7 @@ function showDeathScreen() {
 
     if (homeBtn) {
         homeBtn.addEventListener('click', (e) => {
-            console.log('Home button clicked');
+            ('Home button clicked');
             e.preventDefault();
             e.stopPropagation();            closeDeathScreen();
             resetGame(true); // Go to main menu
@@ -1131,12 +1131,12 @@ function showDeathScreen() {
         }
           // Always show upload button for all users
         const uploadBtn = deathScreen.querySelector('#death-upload-score');
-        console.log('🔍 Looking for upload button:', uploadBtn);
+        ('🔍 Looking for upload button:', uploadBtn);
         if (uploadBtn) {
             uploadBtn.style.display = 'block';
             uploadBtn.style.visibility = 'visible';
-            console.log('✅ Upload button made visible');
-            console.log('📋 Upload button style:', uploadBtn.style.cssText);
+            ('✅ Upload button made visible');
+            ('📋 Upload button style:', uploadBtn.style.cssText);
         } else {
             console.error('❌ Upload button not found in death screen!');
         }
@@ -1152,7 +1152,7 @@ function showDeathScreen() {
                             window.gameState.score,
                             Math.floor(window.gameState.distance),
                             window.gameState.currentZone || 1                        ).then(() => {
-                            console.log('📊 High score automatically submitted to leaderboard');
+                            ('📊 High score automatically submitted to leaderboard');
                             
                             // Keep manual upload button visible (don't hide it)
                             // Users can still manually upload scores even if auto-uploaded
@@ -1207,14 +1207,14 @@ function showDeathScreen() {
 }
 
 function closeDeathScreen() {
-    console.log('🚪 Closing death screen...');
+    ('🚪 Closing death screen...');
     
     // Remove all death screen overlays (in case there are duplicates)
     const overlays = document.querySelectorAll('#death-screen-overlay');
     overlays.forEach(overlay => {
         if (overlay.parentNode) {
             overlay.parentNode.removeChild(overlay);
-            console.log('🧹 Removed death screen overlay');
+            ('🧹 Removed death screen overlay');
         }
     });
     
@@ -1225,7 +1225,7 @@ function closeDeathScreen() {
     // Ensure game is properly unpaused for restart scenarios
     gamePaused = false;
     
-    console.log('✅ Death screen closed successfully');
+    ('✅ Death screen closed successfully');
 }
 
 function toggleFullscreen() {
@@ -1239,14 +1239,14 @@ function toggleFullscreen() {
 }
 
 function startGame() {
-    console.log('🎮 Starting game...');
+    ('🎮 Starting game...');
     
     // Ensure no death screen remnants exist
     const existingOverlays = document.querySelectorAll('#death-screen-overlay');
     existingOverlays.forEach(overlay => {
         if (overlay.parentNode) {
             overlay.parentNode.removeChild(overlay);
-            console.log('🧹 Removed lingering death screen overlay');
+            ('🧹 Removed lingering death screen overlay');
         }
     });
     
@@ -1269,11 +1269,16 @@ function startGame() {
     if (window.upgradeSystem) {
         window.upgradeSystem.loadUpgrades();
     }
-    
-    // Initialize energy node system
+      // Initialize energy node system
     if (window.EnergyNodeSystem) {
         window.energyNodes = window.EnergyNodeSystem.init();
-    }      // Initialize drone at center of screen
+    }
+    
+    // Initialize floating text system
+    if (window.FloatingTextSystem) {
+        window.FloatingTextSystem.init();
+        ('✨ Floating text system initialized');
+    }// Initialize drone at center of screen
     if (window.Drone) {
         const centerX = window.GAME_WIDTH / 2;
         const centerY = window.GAME_HEIGHT / 2;
@@ -1347,7 +1352,12 @@ function gameLoop(currentTime) {
     
     // === UPDATE PHASE ===
     const updateStartTime = performance.now();
-      // Update gamepad input
+      // Update movement based on currently held keys
+    if (window.updateMovement) {
+        window.updateMovement();
+    }
+    
+    // Update gamepad input
     if (window.updateGamepadInput) {
         window.updateGamepadInput();
     }
@@ -1368,7 +1378,7 @@ function gameLoop(currentTime) {
     } else if (!window.tutorialSystem && window.TutorialSystem && showingHomeScreen) {
         // Initialize tutorial system if it's missing and we're on home screen
         window.tutorialSystem = new window.TutorialSystem(canvas, ctx);
-        console.log('📚 Late tutorial system initialization in update loop');
+        ('📚 Late tutorial system initialization in update loop');
     }
     
     // Update game if not paused and no menus are open
@@ -1473,6 +1483,11 @@ function updateGame(deltaTime) {
         window.energyNodes.update(deltaTime);
     }
     
+    // Update floating text system
+    if (window.FloatingTextSystem) {
+        window.FloatingTextSystem.update(deltaTime);
+    }
+    
     // Update drone and other systems
     if (!gameRunning || gamePaused) return;
     
@@ -1541,6 +1556,11 @@ function renderGame() {
       // Render harvesters
     if (window.renderHarvesters) {
         window.renderHarvesters(ctx);
+    }
+    
+    // Render floating text effects
+    if (window.FloatingTextSystem) {
+        window.FloatingTextSystem.render(ctx);
     }
     
     // TODO: Render harvesters
@@ -1838,7 +1858,7 @@ async function initializeGame() {
             window.tutorialSystem = new window.TutorialSystem(canvas, ctx);
         }
         
-        console.log('⏭️ Opening animation skipped via settings');
+        ('⏭️ Opening animation skipped via settings');
     }
     
     // Initialize viewport management
@@ -2038,7 +2058,7 @@ async function initializeGame() {
     const shouldAutoStart = localStorage.getItem('autoStartGame') === 'true';
     if (shouldAutoStart) {
         localStorage.removeItem('autoStartGame'); // Clear the flag
-        console.log('🚀 Auto-starting game after restart');
+        ('🚀 Auto-starting game after restart');
         
         // Skip animations and go straight to game
         setTimeout(() => {

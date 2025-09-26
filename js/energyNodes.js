@@ -1,6 +1,111 @@
 // ByteSurge: Infinite Loop - Energy Node System
 // Energy collection mechanics and visual effects
 
+// ===== FLOATING TEXT SYSTEM =====
+window.FloatingTextSystem = {
+    texts: [],
+    
+    init() {
+        this.texts = [];
+        return this;
+    },
+    
+    createFloatingText(x, y, text, color = '#00ff00', duration = 2000) {
+        this.texts.push({
+            x: x,
+            y: y,
+            startX: x,
+            startY: y,
+            text: text,
+            color: color,
+            life: 1,
+            maxLife: 1,
+            duration: duration,
+            startTime: performance.now(),
+            scale: 0.1, // Start small
+            alpha: 1,
+            velocity: {
+                x: (Math.random() - 0.5) * 40, // Random horizontal drift
+                y: -60 - Math.random() * 40 // Upward movement with variation
+            }
+        });
+    },
+    
+    update(deltaTime) {
+        for (let i = this.texts.length - 1; i >= 0; i--) {
+            const text = this.texts[i];
+            const elapsed = performance.now() - text.startTime;
+            const progress = elapsed / text.duration;
+            
+            if (progress >= 1) {
+                this.texts.splice(i, 1);
+                continue;
+            }
+            
+            // Animation phases
+            if (progress < 0.2) {
+                // Entrance: scale up dramatically
+                const phaseProgress = progress / 0.2;
+                text.scale = this.easeOutElastic(phaseProgress) * 1.2;
+                text.alpha = phaseProgress;
+            } else if (progress < 0.8) {
+                // Display: stable with slight bounce
+                const phaseProgress = (progress - 0.2) / 0.6;
+                text.scale = 1.2 - phaseProgress * 0.4 + Math.sin(phaseProgress * Math.PI * 6) * 0.05;
+                text.alpha = 1;
+            } else {
+                // Exit: fade out and scale down
+                const phaseProgress = (progress - 0.8) / 0.2;
+                text.scale = 0.8 - phaseProgress * 0.3;
+                text.alpha = 1 - (phaseProgress * phaseProgress);
+            }
+            
+            // Update position
+            text.x += text.velocity.x * deltaTime / 1000;
+            text.y += text.velocity.y * deltaTime / 1000;
+            
+            // Apply some drag
+            text.velocity.x *= 0.98;
+            text.velocity.y *= 0.95;
+        }
+    },
+    
+    render(ctx) {
+        if (this.texts.length === 0) return;
+        
+        ctx.save();
+        
+        this.texts.forEach(text => {
+            ctx.globalAlpha = text.alpha;
+            
+            // Apply glow effect
+            ctx.shadowColor = text.color;
+            ctx.shadowBlur = 10 * text.scale;
+            
+            // Set font and alignment
+            ctx.font = `bold ${Math.floor(14 * text.scale)}px monospace`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Draw text with outline for better visibility
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.lineWidth = 2 * text.scale;
+            ctx.strokeText(text.text, text.x, text.y);
+            
+            ctx.fillStyle = text.color;
+            ctx.fillText(text.text, text.x, text.y);
+        });
+        
+        ctx.restore();
+    },
+    
+    // Easing function for dramatic entrance
+    easeOutElastic(t) {
+        const c4 = (2 * Math.PI) / 3;
+        return t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+    }
+};
+
 // ===== ENERGY NODE SYSTEM =====
 window.EnergyNodeSystem = {
     nodes: [],
@@ -11,7 +116,6 @@ window.EnergyNodeSystem = {
     init() {
         this.nodes = [];
         this.spawnTimer = 0;
-        console.log('⚡ Energy node system initialized');
         return this;
     },
     
@@ -59,8 +163,7 @@ window.EnergyNodeSystem = {
         // Create node with current zone level
         const node = new EnergyNode(x, y, window.gameState ? window.gameState.currentZone : 1);
         this.nodes.push(node);
-    },
-      collectNode(node) {
+    },      collectNode(node) {
         if (node.isCollected) return;
         
         // Remove all aura bonuses before marking as collected
@@ -77,6 +180,26 @@ window.EnergyNodeSystem = {
         }        // Apply any active bonuses
         if (window.gameState) {
             window.gameState.energy += energyValue;
+        }
+        
+        // Create floating text for energy gained
+        if (window.FloatingTextSystem) {
+            const displayValue = energyValue.toFixed(1);
+            const text = `+${displayValue} E`;
+            
+            // Use zone-appropriate color
+            const textColor = node.color || '#00ff00';
+            
+            // Create floating text at node position with slight randomization
+            const offsetX = (Math.random() - 0.5) * 20;
+            const offsetY = (Math.random() - 0.5) * 10;
+            window.FloatingTextSystem.createFloatingText(
+                node.x + offsetX, 
+                node.y + offsetY, 
+                text, 
+                textColor, 
+                1800 // 1.8 seconds duration
+            );
         }
         
         // Notify tutorial system about energy collection
@@ -129,7 +252,6 @@ class EnergyNode {
         this.particles = [];
         this.maxParticles = 8;
         
-        console.log(`⚡ Zone ${zoneLevel} energy node spawned at (${x.toFixed(1)}, ${y.toFixed(1)})`);
     }
     
     getZoneType(zoneLevel) {
@@ -319,7 +441,6 @@ class EnergyNode {
         this.isCollected = true;
         this.collectionTime = 0;
         
-        console.log(`⚡ Energy node collected! +${this.value} energy`);
         return this.value;
     }
     
@@ -389,7 +510,7 @@ class EnergyNode {
         harvester.isAuraBoosted = true;
         harvester.auraBoostLevel = this.zoneLevel;
         
-        console.log(`🌟 Harvester boosted by Zone ${this.zoneLevel} energy node! Bonus: +${((this.auraBonus - 1) * 100).toFixed(0)}%`);
+        
     }
     
     removeAuraBonus(harvester) {
@@ -403,7 +524,7 @@ class EnergyNode {
         harvester.isAuraBoosted = false;
         harvester.auraBoostLevel = 0;
         
-        console.log(`💔 Harvester lost aura bonus`);
+
     }
     
     // Called when energy node is collected
@@ -413,7 +534,6 @@ class EnergyNode {
         });
         this.affectedHarvesters.clear();
         
-        console.log(`⚡ Zone ${this.zoneLevel} energy node collected - all aura bonuses removed`);
     }
       renderAura(ctx) {
         ctx.save();
@@ -560,7 +680,6 @@ function renderEnergyNodes(ctx) {
 function resetEnergyNodes() {
     energyNodes = [];
     lastEnergyNodeSpawn = performance.now();
-    console.log('🔄 Energy nodes reset');
 }
 
 function checkEnergyCollisions(drone) {

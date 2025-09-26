@@ -234,7 +234,7 @@ Glitch sound when corruption appears
 
  ✅ Zone transition effects
 
- Floating text when you collect energy
+ ✅ Floating text when you collect energy
 
 ✅ Phase 2 End Goal
 A deeper game loop with actual progression

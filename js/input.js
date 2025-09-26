@@ -41,13 +41,13 @@ function isTypingInInputField() {
 }
 
 function setupInputHandlers() {
-    console.log('🎮 Setting up advanced input system...');
+     ('🎮 Setting up advanced input system...');
     
     // === KEYBOARD INPUT SYSTEM ===
     document.addEventListener('keydown', (e) => {
         // Check if user is typing in an input field
         if (isTypingInInputField()) {
-            console.log('🔤 User is typing in input field, ignoring game controls for key:', e.code);
+             ('🔤 User is typing in input field, ignoring game controls for key:', e.code);
             return; // Don't process game controls when typing
         }
         
@@ -67,15 +67,15 @@ function setupInputHandlers() {
             inputState.inputBuffer.shift();
         }// Handle upgrade menu input first (works even when game isn't running)
         if (e.code === 'KeyU') {
-            console.log('🔑 U key pressed - checking upgrade system...');
-            console.log('upgradeSystem exists:', !!window.upgradeSystem);
-            console.log('upgradeMenuUI exists:', !!window.upgradeMenuUI);
+             ('🔑 U key pressed - checking upgrade system...');
+             ('upgradeSystem exists:', !!window.upgradeSystem);
+             ('upgradeMenuUI exists:', !!window.upgradeMenuUI);
             if (window.upgradeSystem) {
-                console.log('upgradeSystem.isMenuOpen:', window.upgradeSystem.isMenuOpen);
+                 ('upgradeSystem.isMenuOpen:', window.upgradeSystem.isMenuOpen);
             }
             
             if (window.upgradeSystem && !window.upgradeSystem.isMenuOpen) {
-                console.log('Opening upgrade menu...');
+                 ('Opening upgrade menu...');
                 window.upgradeMenuUI.openMenu();
                 if (window.togglePause && window.getGameRunning && window.getGameRunning()) {
                     window.togglePause();
@@ -83,7 +83,7 @@ function setupInputHandlers() {
                 e.preventDefault();
                 return;
             } else if (window.upgradeSystem && window.upgradeSystem.isMenuOpen) {
-                console.log('Closing upgrade menu...');
+                 ('Closing upgrade menu...');
                 window.upgradeMenuUI.closeMenu();
                 e.preventDefault();
                 return;
@@ -128,12 +128,12 @@ function setupInputHandlers() {
         // Handle settings menu toggle (works even when game isn't running)
         if (e.code === 'Escape') {
             e.preventDefault();
-            console.log('🔑 ESC key pressed - toggling settings menu');
+             ('🔑 ESC key pressed - toggling settings menu');
             if (window.isSettingsMenuOpen && window.isSettingsMenuOpen()) {
-                console.log('Closing settings menu');
+                 ('Closing settings menu');
                 window.closeSettingsMenu();
             } else if (window.openSettingsMenu) {
-                console.log('Opening settings menu');
+                 ('Opening settings menu');
                 window.openSettingsMenu();
             } else {
                 console.error('❌ openSettingsMenu function not found!');
@@ -150,9 +150,17 @@ function setupInputHandlers() {
         }
         
         switch(e.code) {
+            case 'ArrowUp':
+            case 'ArrowDown':
+            case 'ArrowLeft':
+            case 'ArrowRight':
+                // Arrow keys are handled continuously in updateMovement()
+                // Just prevent default behavior here
+                e.preventDefault();
+                break;
             case 'Space':
                 e.preventDefault();
-                handleTurn();
+                handleHarvesterDrop();
                 break;
             case 'KeyH':
                 e.preventDefault();
@@ -250,15 +258,16 @@ function setupInputHandlers() {
         }
         
         switch(e.button) {            case 0: // Left click
-                // Check for harvester clicks first before turning
+                // Check for harvester clicks first
                 const rect = canvas.getBoundingClientRect();
                 const gameCoords = window.viewportManager.screenToGame(e.clientX, e.clientY);                if (window.harvesterSystem && isClickOnHarvester(gameCoords.x, gameCoords.y)) {
-                    // Let harvester system handle the click, don't turn
+                    // Let harvester system handle the click
                     window.harvesterSystem.handleClick(gameCoords.x, gameCoords.y);
                     return;
                 }
                 
-                handleTurn();
+                // Left click now drops harvesters instead of turning
+                handleHarvesterDrop();
                 break;
             case 2: // Right click
                 handleHarvesterDrop();
@@ -299,8 +308,8 @@ function setupInputHandlers() {
                 return;
             }
             
-            // Single touch = turn
-            handleTurn();
+            // Single touch now drops harvester instead of turning
+            handleHarvesterDrop();
         }
         // Multi-touch = harvester drop
         else if (e.touches.length >= 2) {
@@ -336,17 +345,44 @@ function setupInputHandlers() {
     
     // === GAMEPAD SUPPORT ===
     window.addEventListener('gamepadconnected', (e) => {
-        console.log(`🎮 Gamepad connected: ${e.gamepad.id}`);
+         (`🎮 Gamepad connected: ${e.gamepad.id}`);
     });
     
     window.addEventListener('gamepaddisconnected', (e) => {
-        console.log(`🎮 Gamepad disconnected: ${e.gamepad.id}`);
+         (`🎮 Gamepad disconnected: ${e.gamepad.id}`);
     });
     
-    console.log('✅ Advanced input system initialized');
+     ('✅ Advanced input system initialized');
 }
 
 // ===== INPUT HANDLERS =====
+function updateMovement() {
+    // Update drone movement based on currently held keys
+    if (!window.drone || !window.getGameRunning || !window.getGameRunning()) return;
+    
+    // Check which arrow keys are currently pressed and set direction accordingly
+    // Priority order: most recently pressed key wins if multiple are held
+    if (inputState.keys.has('ArrowUp')) {
+         ('🔑 ArrowUp held - setting direction to UP (3)');
+        window.drone.direction = 3; // Up
+    }
+    if (inputState.keys.has('ArrowDown')) {
+         ('🔑 ArrowDown held - setting direction to DOWN (1)');
+        window.drone.direction = 1; // Down  
+    }
+    if (inputState.keys.has('ArrowLeft')) {
+         ('🔑 ArrowLeft held - setting direction to LEFT (2)');
+        window.drone.direction = 2; // Left
+    }
+    if (inputState.keys.has('ArrowRight')) {
+         ('🔑 ArrowRight held - setting direction to RIGHT (0)');
+        window.drone.direction = 0; // Right
+    }
+    
+    // The drone continues to move in whatever direction is set
+    // This gives immediate response to key presses while maintaining continuous movement
+}
+
 function handleTurn() {
     // Try to turn the drone
     if (window.drone && window.drone.turn()) {
@@ -544,7 +580,6 @@ function isClickOnHarvester(gameX, gameY) {
 window.inputState = inputState;
 window.setupInputHandlers = setupInputHandlers;
 window.updateGamepadInput = updateGamepadInput;
+window.updateMovement = updateMovement;
 window.cleanupInputBuffer = cleanupInputBuffer;
-window.createScreenFlash = createScreenFlash;
-window.createScreenFlash = createScreenFlash;
 window.createScreenFlash = createScreenFlash;
